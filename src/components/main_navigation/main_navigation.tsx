@@ -11,8 +11,13 @@ import type {
   CanvasSlot,
 } from '@freelygive/canvas-utils/types';
 
-/** Drupal JSON:API client instance. */
-const client = new JsonApiClient();
+/**
+ * Drupal JSON:API client, created on first fetch rather than at import:
+ * constructing it throws on sites without the JSON:API module, which would
+ * stop the whole navigation hydrating even when its links come from the slot.
+ */
+let client: JsonApiClient | undefined;
+const getClient = () => (client ??= new JsonApiClient());
 
 /** Colour scheme of the menu links on wide screens. */
 type NavigationColorScheme = 'light' | 'dark';
@@ -115,7 +120,7 @@ const MainNavigation = ({
   const hasSlotLinks = getSlotChildren(links).length > 0;
   const { data, error, isLoading } = useSWR(
     hasSlotLinks ? null : ['menu_items', 'main'],
-    ([type, resourceId]) => client.getResource(type, resourceId),
+    ([type, resourceId]) => getClient().getResource(type, resourceId),
   );
 
   // MenuItem type from drupal-canvas omits title/url present on JSON:API items.

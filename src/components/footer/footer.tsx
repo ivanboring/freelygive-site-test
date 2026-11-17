@@ -5,9 +5,12 @@ import type { CanvasImage, CanvasSlot } from '@freelygive/canvas-utils/types';
 /** Footer colour scheme. */
 type FooterColorScheme = 'light' | 'dark';
 
-/** Footer surface classes for the column layout. */
+/**
+ * Footer surface classes for the column layout. Side padding uses range
+ * variants only (no bare `px-6`), so a theme's own utilities can't override it.
+ */
 const footerVariants = cva(
-  'w-full px-6 py-10 md:px-10 lg:px-[max(5rem,calc((100%_-_80rem)/2))]',
+  'w-full py-10 max-md:px-6 md:max-lg:px-10 lg:px-[max(5rem,calc((100%_-_80rem)/2))]',
   {
     variants: {
       colorScheme: {
