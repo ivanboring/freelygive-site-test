@@ -160,8 +160,28 @@ values below as **suggestions**. The user selects the server configuration.
 | MySQL | Cluster default | Set at cluster level. The local DB is MariaDB 11.8, and the export is made MySQL-safe |
 | Branch | The branch pushed in §3 | |
 
-Expected result: activation `SUCCESS`, then `check-site.sh` reports
-`install_required`. A testing workspace allows 3 running applications.
+**Activation does not build the site** (verified 2026-11-17, deploy activity
+log). DevPanel creates the database, clones the branch and reports `SUCCESS`.
+It runs no `.devpanel` script, and its own readiness check 404s and is
+ignored. Until `composer install` runs, the site answers 403 at `/` and 404 at
+`/index.php`. The user then runs this once in the application's VS Code
+terminal (so pass `isEnableEditor: true` on activation, because the tool
+defaults it to off):
+
+```bash
+cd /var/www/html && bash .devpanel/re-config.sh
+```
+
+That runs `composer install` and creates the files, private and config folders.
+Its `drush cron` step fails until a database exists. After that, `check-site.sh`
+reports `install_required`. A testing workspace allows 3 running applications.
+
+**Automating it** is not possible through the MCP: there is no
+command-execution tool. The candidate is `.devpanel/config.yml` `git_hooks`.
+It runs a `cmd` on push to a named branch, but only when the GitHub repo
+calls DevPanel's git hook (a `DP_TOKEN` webhook, set up outside the MCP). The
+scaffolded file only lists `main` and `develop`. This is unverified. Try it
+only with the user, and record the result here.
 
 ## 5. Move the content (first deploy only)
 
