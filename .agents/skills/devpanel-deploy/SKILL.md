@@ -127,8 +127,17 @@ pinned `drupalforge/devpanel-starter` via Composer scaffold and the
   `post-drupal-scaffold-cmd` beside them.
 - Run Composer in the web container: `composer …` here, `ddev composer …` from
   the host.
-- Run the reference's local validation, then preflight again. Commit
-  `composer.json composer.lock .devpanel/` with a path-limited commit.
+- **Commit the scaffolded files explicitly.** `drupal/core-composer-scaffold`
+  writes `.devpanel/.gitignore` listing the five files it generated. So
+  `git add .devpanel/` silently commits only `settings-include.txt` and the
+  ignore file. On the first deployment that left DevPanel with no
+  `re-config.sh`. Delete `.devpanel/.gitignore` and add the five files by
+  name. Once they are tracked, scaffold neither re-ignores nor recreates the
+  file. Verify with `git ls-files -s .devpanel`: six files, with
+  `re-config.sh`, `warm` and `custom_package_installer.sh` at mode `100755`.
+- Run the reference's local validation, then preflight again (it checks HEAD,
+  not the disk). Commit `composer.json composer.lock .devpanel/` with a
+  path-limited commit.
 - Tell the user the toolkit has verified this locally but not yet on a real
   DevPanel deployment.
 
@@ -160,23 +169,27 @@ values below as **suggestions**. The user selects the server configuration.
 | MySQL | Cluster default | Set at cluster level. The local DB is MariaDB 11.8, and the export is made MySQL-safe |
 | Branch | The branch pushed in §3 | |
 
-**Activation does not build the site** (verified 2026-11-17, deploy activity
-log). DevPanel creates the database, clones the branch and reports `SUCCESS`.
-It runs no `.devpanel` script, and its own readiness check 404s and is
-ignored. Until `composer install` runs, the site answers 403 at `/` and 404 at
-`/index.php`. The user then runs this once in the application's VS Code
+**Before activating, preflight must show every `.devpanel` file committed in
+HEAD and pushed.** On the first deployment (2026-11-17), `re-config.sh` was
+missing from the branch (see §2). Activation then created the database,
+cloned the branch, ran no script and still reported `SUCCESS`; its own
+readiness check 404s and is ignored. Whether activation runs `re-config.sh`
+when it *is* present is still unverified. Record the outcome here.
+
+If the site answers 403 at `/` and 404 at `/index.php` after activation,
+`composer install` has not run. The user runs this in the application's VS Code
 terminal (so pass `isEnableEditor: true` on activation, because the tool
 defaults it to off):
 
 ```bash
-cd /var/www/html && bash .devpanel/re-config.sh
+cd /var/www/html && git pull && bash .devpanel/re-config.sh
 ```
 
 That runs `composer install` and creates the files, private and config folders.
 Its `drush cron` step fails until a database exists. After that, `check-site.sh`
 reports `install_required`. A testing workspace allows 3 running applications.
 
-**Automating it** is not possible through the MCP: there is no
+**Automating later deploys** is not possible through the MCP: there is no
 command-execution tool. The candidate is `.devpanel/config.yml` `git_hooks`.
 It runs a `cmd` on push to a named branch, but only when the GitHub repo
 calls DevPanel's git hook (a `DP_TOKEN` webhook, set up outside the MCP). The

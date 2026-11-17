@@ -108,17 +108,25 @@ esac
 if git check-ignore -q .devpanel-export/db.sql.gz; then ok ".devpanel-export/ is git-ignored"; else block ".devpanel-export/ is not git-ignored"; fi
 
 section "DevPanel glue (lifecycle add-devpanel-config.md)"
-have=0
-node -e 'process.exit(require("./composer.json").require?.["drupalforge/devpanel-starter"] ? 0 : 1)' 2>/dev/null && have=$((have + 1))
-[ -f .devpanel/settings-include.txt ] && have=$((have + 1))
-[ -x .devpanel/re-config.sh ] && have=$((have + 1))
-case $have in
-  3) ok "drupalforge/devpanel-starter required, .devpanel/ scaffolded, settings include present" ;;
-  0) todo "DevPanel glue not added yet (SKILL.md section 2)" ;;
-  *) warn "DevPanel glue partly present ($have of 3: composer require, .devpanel/settings-include.txt, executable .devpanel/re-config.sh)" ;;
-esac
-if [ -d .devpanel ] && ! git cat-file -e HEAD:.devpanel 2>/dev/null; then
-  todo ".devpanel/ exists but is not committed"
+# What matters is what DevPanel will clone: check HEAD, not the working tree.
+# (Composer scaffold writes .devpanel/.gitignore hiding the files it generates.)
+if node -e 'process.exit(require("./composer.json").require?.["drupalforge/devpanel-starter"] ? 0 : 1)' 2>/dev/null; then
+  missing_dp=()
+  for f in re-config.sh settings.devpanel.php warm custom_package_installer.sh config.yml settings-include.txt; do
+    git cat-file -e "HEAD:.devpanel/$f" 2>/dev/null || missing_dp+=("$f")
+  done
+  if [ ${#missing_dp[@]} -eq 0 ]; then
+    mode="$(git ls-tree HEAD .devpanel/re-config.sh | cut -d' ' -f1)"
+    if [ "$mode" = "100755" ]; then ok "all .devpanel files committed in HEAD, re-config.sh executable"
+    else block ".devpanel/re-config.sh is committed without the executable bit (mode $mode)"; fi
+  else
+    block "not committed in HEAD: ${missing_dp[*]/#/.devpanel/} (check .devpanel/.gitignore; SKILL.md section 2)"
+  fi
+  if git cat-file -e HEAD:.devpanel/.gitignore 2>/dev/null || [ -f .devpanel/.gitignore ]; then
+    warn ".devpanel/.gitignore exists: the scaffold uses it to hide its files from Git"
+  fi
+else
+  todo "DevPanel glue not added yet (SKILL.md section 2)"
 fi
 
 section "Local site content (moves with the database, not Git)"
