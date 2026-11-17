@@ -1,0 +1,13 @@
+{
+  "componentDir": "./src/components",
+  "pagesDir": "./pages",
+  "contentTemplatesDir": "./content-templates",
+  "aliasBaseDir": "src",
+  "outputDir": "dist",
+  "globalCssPath": "./src/components/global.css",
+  "sync": {
+    "pages": false,
+    "contentTemplates": false,
+    "regions": false
+  }
+}
