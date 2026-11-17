@@ -46,6 +46,11 @@ Read the settings first, and pass the resolved values to any subagent.
   (`CANVAS_SITE_URL`, the local DDEV site). A DevPanel site is a different,
   live CMS. Before the first `npx canvas push` to it, ask whether the setting
   also covers that host, and record the answer under the setting in AGENTS.md.
+- **Every DevPanel MCP call needs the user's go-ahead**, including the
+  read-only ones. The user asked for this, and `permissions.ask: ["mcp__devpanel"]`
+  in `.claude/settings.json` makes Claude Code prompt for each call. Before a
+  call, say what it is for and what it will read or change. Group the reads you
+  need so the user is not prompted more than necessary.
 - **DevPanel plans**: every DevPanel change goes through the lifecycle
   approval protocol. Show `plan_text` verbatim and wait for a literal
   `APPROVE`/`REJECT`. "Deploy it" is not approval of a plan the user has not

@@ -25,6 +25,9 @@
       "Bash(sftp:*)",
       "Bash(ssh-keyscan:*)",
       "Bash(ssh:*)"
+    ],
+    "ask": [
+      "mcp__devpanel"
     ]
   },
   "enabledMcpjsonServers": [
