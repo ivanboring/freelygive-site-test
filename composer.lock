@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7cfc401cc3bdd4202f29ba43489dae90",
+    "content-hash": "7e6811d7ea05feb88e3189de37e5d11e",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -5932,6 +5932,27 @@
                 "issues": "http://drupal.org/project/yoast_seo"
             },
             "published-time": "2025-07-16T11:09:42+00:00"
+        },
+        {
+            "name": "drupalforge/devpanel-starter",
+            "version": "1.0.0",
+            "dist": {
+                "type": "zip",
+                "url": "https://github.com/drupalforge/starter_template/archive/d72d2e9505a8514e0af8f32ae19d6dffcf0a096b.zip",
+                "reference": "d72d2e9505a8514e0af8f32ae19d6dffcf0a096b"
+            },
+            "type": "library",
+            "extra": {
+                "drupal-scaffold": {
+                    "file-mapping": {
+                        "[project-root]/.devpanel/re-config.sh": ".devpanel/re-config.sh",
+                        "[project-root]/.devpanel/settings.devpanel.php": ".devpanel/settings.devpanel.php",
+                        "[project-root]/.devpanel/warm": ".devpanel/warm",
+                        "[project-root]/.devpanel/custom_package_installer.sh": ".devpanel/custom_package_installer.sh",
+                        "[project-root]/.devpanel/config.yml": ".devpanel/config.yml"
+                    }
+                }
+            }
         },
         {
             "name": "e0ipso/simple_oauth_21",
@@ -18880,12 +18901,12 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "drupal/agent_access": 15,
         "drupal/ai_best_practices": 20,
         "drupal/canvas_tools": 20,
         "drupal/canvas_translate": 15,
-        "drupal/mcp_server": 10,
+        "drupal/mcp_server_oauth": 15,
         "drupal/mcp_server_oauth-mcp_server_oauth": 15,
+        "drupal/mcp_server_tool_bridge": 10,
         "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10,
         "drupal/tool": 10,
         "drupal/tool_belt": 15

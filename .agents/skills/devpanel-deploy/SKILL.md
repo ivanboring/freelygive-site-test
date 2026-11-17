@@ -219,10 +219,11 @@ applications), just to ship code. Until a route is verified, use one of these:
   then `drush deploy`. This route is also unverified.
 
 Re-check the live tool list each time in case a redeploy tool has been added.
-Then check the deploy activity log for
-`drush updb` / `config:import`. If they did not run, the user runs
-`drush deploy` in the VS Code terminal. Record what worked under **Verified
-update path**.
+The scaffolded `.devpanel/re-config.sh` (pinned starter `d72d2e9`) runs
+`composer install`, `drush cron` and a cache warm-up. It never runs
+`drush updb` or `config:import` against an existing database. So after a code
+change, the user runs `drush deploy` in the VS Code terminal. Record what
+worked under **Verified update path**.
 
 **Components to DevPanel:**
 
@@ -248,6 +249,9 @@ its arguments and what the activity log showed.
 - DDEV's MariaDB 11.8 dump starts with `/*M!999999\- enable the sandbox mode */`.
   MySQL clients reject it with `Unknown command '\-'`. The export script strips
   it.
+- `.devpanel/re-config.sh` imports `.devpanel/dumps/db.sql.gz` and
+  `files.tgz` automatically when the database is empty. Never put anything
+  there: the folder is in Git, and the GitHub repo may be public.
 - Local tables use `utf8mb4_unicode_520_ci`, which MySQL 8 supports. Collation
   errors are handled in the import guide's table.
 - `.claude/skills/devpanel-project-lifecycle/` is untracked. Commit it, or

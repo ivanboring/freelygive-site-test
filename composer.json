@@ -17,6 +17,30 @@
             "only": [
                 "drupal/*"
             ]
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "drupalforge/devpanel-starter",
+                "version": "1.0.0",
+                "type": "library",
+                "dist": {
+                    "type": "zip",
+                    "url": "https://github.com/drupalforge/starter_template/archive/d72d2e9505a8514e0af8f32ae19d6dffcf0a096b.zip",
+                    "reference": "d72d2e9505a8514e0af8f32ae19d6dffcf0a096b"
+                },
+                "extra": {
+                    "drupal-scaffold": {
+                        "file-mapping": {
+                            "[project-root]/.devpanel/re-config.sh": ".devpanel/re-config.sh",
+                            "[project-root]/.devpanel/settings.devpanel.php": ".devpanel/settings.devpanel.php",
+                            "[project-root]/.devpanel/warm": ".devpanel/warm",
+                            "[project-root]/.devpanel/custom_package_installer.sh": ".devpanel/custom_package_installer.sh",
+                            "[project-root]/.devpanel/config.yml": ".devpanel/config.yml"
+                        }
+                    }
+                }
+            }
         }
     ],
     "require": {
@@ -81,7 +105,8 @@
         "drupal/trash": "^3.0.13",
         "drupal/view_password": "^6",
         "drupal/yoast_seo": "^2.1",
-        "e0ipso/simple_oauth_21": "^1.13"
+        "e0ipso/simple_oauth_21": "^1.13",
+        "drupalforge/devpanel-starter": "1.0.0"
     },
     "require-dev": {
         "drupal/ai_best_practices": "@dev",
@@ -122,7 +147,8 @@
             "allowed-packages": [
                 "drupal/drupal_cms_blank",
                 "drupal/drupal_cms_site_template_base",
-                "drupal/drupal_cms_starter"
+                "drupal/drupal_cms_starter",
+                "drupalforge/devpanel-starter"
             ]
         },
         "installer-paths": {
@@ -178,6 +204,11 @@
         "post-install-cmd": [
             "@post-update-cmd"
         ],
-        "drupal-ai": "Drupal\\AiBestPractices\\Console\\AiBestPracticesApplication::runFromComposer"
+        "drupal-ai": "Drupal\\AiBestPractices\\Console\\AiBestPracticesApplication::runFromComposer",
+        "post-drupal-scaffold-cmd": [
+            "chmod 755 .devpanel/re-config.sh .devpanel/custom_package_installer.sh .devpanel/warm",
+            "test -f web/sites/default/settings.php || cp web/sites/default/default.settings.php web/sites/default/settings.php",
+            "grep -q 'settings.devpanel.php' web/sites/default/settings.php || { chmod u+w web/sites/default web/sites/default/settings.php; cat .devpanel/settings-include.txt >> web/sites/default/settings.php; }"
+        ]
     }
 }
