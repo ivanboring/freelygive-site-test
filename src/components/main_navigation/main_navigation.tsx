@@ -206,13 +206,18 @@ const MainNavigation = ({
         </button>
         <nav
           id={navId}
+          // The overlay styles are scoped to `max-lg:` rather than set bare and
+          // undone at `lg:`: a theme's own `.fixed`, `.invisible` or
+          // `.opacity-0` utility (loaded later) would otherwise win on desktop.
           className={
             hydrated
               ? cn(
                   linkVarsVariants({ colorScheme, mobileMenu }),
-                  'fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-white transition-[opacity,visibility] duration-300 motion-reduce:transition-none',
-                  'lg:visible lg:static lg:block lg:bg-transparent lg:opacity-100',
-                  open ? 'visible opacity-100' : 'invisible opacity-0',
+                  'overflow-y-auto transition-[opacity,visibility] duration-300 motion-reduce:transition-none',
+                  'max-lg:fixed max-lg:inset-0 max-lg:z-40 max-lg:flex max-lg:items-center max-lg:justify-center max-lg:bg-white',
+                  open
+                    ? 'visible opacity-100'
+                    : 'max-lg:invisible max-lg:opacity-0',
                 )
               : // Pre-hydration / no-JS: a plain wrapped list, never hidden.
                 staticLinkVarsVariants({ colorScheme })
@@ -220,10 +225,11 @@ const MainNavigation = ({
           aria-label="Main navigation"
         >
           <div
-            className={cn(
-              'flex flex-col items-center gap-y-2 py-24 text-center lg:flex-row lg:flex-wrap lg:justify-end lg:gap-x-2.5 lg:gap-y-1 lg:py-0 xl:gap-x-[1.15rem]',
-              !hydrated && 'flex-row flex-wrap justify-end gap-x-4 py-0',
-            )}
+            className={
+              hydrated
+                ? 'flex items-center text-center max-lg:flex-col max-lg:gap-y-2 max-lg:py-24 lg:flex-row lg:flex-wrap lg:justify-end lg:gap-x-2.5 lg:gap-y-1 xl:gap-x-[1.15rem]'
+                : 'flex flex-row flex-wrap items-center justify-end text-center max-lg:gap-x-4 max-lg:gap-y-2 lg:gap-x-2.5 lg:gap-y-1 xl:gap-x-[1.15rem]'
+            }
           >
             {hasSlotLinks ? links : fetchedLinks}
           </div>
