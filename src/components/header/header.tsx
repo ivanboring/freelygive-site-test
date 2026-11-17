@@ -8,6 +8,9 @@ import type { CanvasSlot } from '@freelygive/canvas-utils/types';
 /** Header colour scheme. */
 type HeaderColorScheme = 'light' | 'dark';
 
+/** Fragment target at the end of the header, used by the skip link. */
+const SKIP_TARGET_ID = 'header-skip-target';
+
 /** Header grid layout classes. */
 const headerVariants = cva(
   cn(
@@ -68,6 +71,8 @@ interface HeaderProps {
   displaySearchForm?: boolean;
   /** Colour scheme: the default light bar, or the dark navy brand bar. */
   colorScheme?: HeaderColorScheme;
+  /** Add a keyboard "Skip to Content" link that jumps past the header. */
+  skipLink?: boolean;
 }
 
 /**
@@ -81,6 +86,7 @@ const Header = ({
   menu,
   displaySearchForm,
   colorScheme = 'light',
+  skipLink = false,
 }: HeaderProps) => {
   const [height, setHeight] = useState(0);
   const ref = useRef<HTMLElement>(null);
@@ -118,6 +124,15 @@ const Header = ({
         } as CSSProperties
       }
     >
+      {skipLink && (
+        <a
+          href={`#${SKIP_TARGET_ID}`}
+          className="sr-only z-[60] rounded-sm bg-white font-semibold text-black focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:px-4 focus:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Skip to Content
+        </a>
+      )}
+
       {/* Logo - always first */}
       <div className={logoCellVariants({ colorScheme })}>{logo}</div>
 
@@ -136,6 +151,15 @@ const Header = ({
         <div className="hidden min-w-[50px] content-center text-right md:block">
           <SearchButton positionTop={height} />
         </div>
+      )}
+
+      {/* Skip link target: focus lands here, so the next Tab leaves the header. */}
+      {skipLink && (
+        <span
+          id={SKIP_TARGET_ID}
+          tabIndex={-1}
+          className="absolute bottom-0 left-0 size-px outline-none"
+        />
       )}
     </header>
   );

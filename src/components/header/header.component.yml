@@ -9,6 +9,14 @@ props:
       type: boolean
       examples:
         - true
+    skipLink:
+      title: Skip Link
+      type: boolean
+      description:
+        Add a "Skip to Content" link, shown when focused with the keyboard, that
+        jumps past the header to the page content.
+      examples:
+        - false
     colorScheme:
       title: Color Scheme
       type: string

@@ -40,9 +40,9 @@ const trimmedVariants = cva('aspect-[600/264] max-w-full overflow-hidden', {
     size: {
       icon: 'w-[43px]',
       x_small: 'w-[97px]',
-      small: 'w-[110px] md:w-[150px]',
-      medium: 'w-[150px] md:w-[204px]',
-      large: 'w-[200px] md:w-[312px]',
+      small: 'w-[110px] lg:w-[150px]',
+      medium: 'w-[150px] lg:w-[204px]',
+      large: 'w-[200px] lg:w-[312px]',
     } satisfies Record<LogoCardSize, string>,
   },
 });

@@ -55,6 +55,7 @@ export const FreelyGiveHome: Story = {
     <>
       <Header
         colorScheme="dark"
+        skipLink
         logo={<Logo image={logoWordmark} />}
         menu={
           <MainNavigation

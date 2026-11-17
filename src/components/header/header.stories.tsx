@@ -25,6 +25,12 @@ const meta = {
       description: 'Whether to show the search button and its overlay.',
       table: tables.CANVAS,
     },
+    skipLink: {
+      control: 'boolean',
+      description:
+        'Add a "Skip to Content" link, visible on keyboard focus, that jumps past the header.',
+      table: tables.CANVAS,
+    },
     colorScheme: {
       control: 'select',
       options: ['light', 'dark'],
@@ -84,6 +90,7 @@ export const CustomBackground: Story = {
 export const Dark: Story = {
   args: {
     colorScheme: 'dark',
+    skipLink: true,
     logo: <Logo image={logoWordmark} />,
     menu: (
       <Navigation links={navLinks} colorScheme="dark" mobileMenu="fullscreen" />

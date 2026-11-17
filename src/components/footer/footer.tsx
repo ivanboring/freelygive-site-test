@@ -102,7 +102,7 @@ const Footer = ({
 
   return (
     <footer className={footerVariants({ colorScheme })}>
-      <div className="grid gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-[42fr_29fr_29fr] lg:gap-x-0">
+      <div className="grid gap-x-6 gap-y-10 md:grid-cols-[42fr_29fr_29fr] lg:gap-x-0">
         {/* Brand and legal */}
         <div className="flex flex-col items-start gap-2">
           {logo?.src && (
@@ -145,7 +145,7 @@ const Footer = ({
 
         {/* Badges */}
         {badges && (
-          <div className="flex max-w-[19.5rem] flex-wrap items-center gap-x-3 gap-y-3 md:col-span-2 lg:col-span-1">
+          <div className="flex max-w-[19.5rem] flex-wrap items-center gap-x-3 gap-y-3">
             {badges}
           </div>
         )}

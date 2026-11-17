@@ -20,8 +20,11 @@ type NavigationColorScheme = 'light' | 'dark';
 /** How the menu opens on small screens. */
 type NavigationMobileMenu = 'dropdown' | 'fullscreen';
 
-/** Media query matching the `md` breakpoint, where the menu is always shown. */
-const DESKTOP_QUERY = '(min-width: 48rem)';
+/**
+ * Media query matching the `lg` breakpoint, from which the full-screen menu's
+ * links show inline (a full menu needs about 60rem to fit on one row).
+ */
+const FULLSCREEN_DESKTOP_QUERY = '(min-width: 64rem)';
 
 /**
  * Link styling handed to `nav_link` children through CSS custom properties,
@@ -32,9 +35,33 @@ const linkVarsVariants = cva('', {
   variants: {
     colorScheme: {
       light: '[--nav-link-color:var(--color-gray-900)] [--nav-link-size:1rem]',
-      dark: '[--nav-link-color:var(--color-black)] [--nav-link-size:2.07rem] md:[--nav-link-color:var(--color-white)] md:[--nav-link-size:1rem]',
+      dark: '',
     } satisfies Record<NavigationColorScheme, string>,
+    mobileMenu: {
+      dropdown: '',
+      fullscreen: '',
+    } satisfies Record<NavigationMobileMenu, string>,
   },
+  compoundVariants: [
+    // Dark links on the white mobile panel, light links in the dark bar.
+    {
+      colorScheme: 'dark',
+      mobileMenu: 'dropdown',
+      className:
+        '[--nav-link-color:var(--color-black)] [--nav-link-size:1rem] md:[--nav-link-color:var(--color-white)]',
+    },
+    {
+      colorScheme: 'dark',
+      mobileMenu: 'fullscreen',
+      className:
+        '[--nav-link-color:var(--color-black)] [--nav-link-size:2.07rem] lg:[--nav-link-color:var(--color-white)] lg:[--nav-link-size:1rem]',
+    },
+    {
+      colorScheme: 'light',
+      mobileMenu: 'fullscreen',
+      className: '[--nav-link-size:2.07rem] lg:[--nav-link-size:1rem]',
+    },
+  ],
 });
 
 /**
@@ -52,7 +79,7 @@ const staticLinkVarsVariants = cva('[--nav-link-size:1rem]', {
 
 /** Toggle button colour for the full-screen menu. */
 const fullscreenToggleVariants = cva(
-  'relative z-50 flex size-11 cursor-pointer items-center justify-center rounded-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-current md:hidden',
+  'relative z-50 flex size-11 cursor-pointer items-center justify-center rounded-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-current lg:hidden',
   {
     variants: {
       colorScheme: {
@@ -116,7 +143,7 @@ const MainNavigation = ({
         toggleRef.current?.focus();
       }
     };
-    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const desktop = window.matchMedia(FULLSCREEN_DESKTOP_QUERY);
     const onWiden = () => {
       if (desktop.matches) setOpen(false);
     };
@@ -177,9 +204,9 @@ const MainNavigation = ({
           className={
             hydrated
               ? cn(
-                  linkVarsVariants({ colorScheme }),
+                  linkVarsVariants({ colorScheme, mobileMenu }),
                   'fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-white transition-[opacity,visibility] duration-300 motion-reduce:transition-none',
-                  'md:visible md:static md:block md:bg-transparent md:opacity-100',
+                  'lg:visible lg:static lg:block lg:bg-transparent lg:opacity-100',
                   open ? 'visible opacity-100' : 'invisible opacity-0',
                 )
               : // Pre-hydration / no-JS: a plain wrapped list, never hidden.
@@ -189,7 +216,7 @@ const MainNavigation = ({
         >
           <div
             className={cn(
-              'flex flex-col items-center gap-y-2 py-24 text-center md:flex-row md:flex-wrap md:justify-end md:gap-x-[1.15rem] md:gap-y-1 md:py-0',
+              'flex flex-col items-center gap-y-2 py-24 text-center lg:flex-row lg:flex-wrap lg:justify-end lg:gap-x-2.5 lg:gap-y-1 lg:py-0 xl:gap-x-[1.15rem]',
               !hydrated && 'flex-row flex-wrap justify-end gap-x-4 py-0',
             )}
           >
@@ -250,7 +277,7 @@ const MainNavigation = ({
         className={cn(
           'absolute left-0 w-screen bg-white px-10 py-6 md:static md:block md:w-full md:px-8 md:py-0',
           open ? '' : 'hidden',
-          hasSlotLinks && linkVarsVariants({ colorScheme }),
+          hasSlotLinks && linkVarsVariants({ colorScheme, mobileMenu }),
         )}
         role="navigation"
         aria-label="Main navigation"
