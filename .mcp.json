@@ -1,12 +1,20 @@
 {
-    "mcpServers": {
-        "storybook": {
-            "type": "http",
-            "url": "https://devpanelmcp.ddev.site:6006/mcp"
-        },
-        "drupal": {
-            "type": "http",
-            "url": "https://devpanelmcp.ddev.site/mcp"
-        }
+  "mcpServers": {
+    "storybook": {
+      "type": "http",
+      "url": "https://devpanelmcp.ddev.site:6006/mcp"
+    },
+    "drupal": {
+      "type": "http",
+      "url": "https://devpanelmcp.ddev.site/mcp",
+      "oauth": {
+        "clientId": "claude-code",
+        "callbackPort": 47123
+      }
+    },
+    "devpanel": {
+      "type": "http",
+      "url": "https://mcp.devpanel.com/mcp"
     }
+  }
 }
