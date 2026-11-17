@@ -36,7 +36,7 @@ Settings:
     default/main branch) · `ask each session`
 
 - **git-remote** — whether local git history is published.
-  - value: `UNSET` · default: `none`
+  - value: `push` · default: `none`
   - options: `none` (never push) · `push` (push the working branch to the source
     repo) · `merge-request` (push the branch and open an MR/PR) ·
     `ask each session`
