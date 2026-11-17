@@ -1,0 +1,19 @@
+uuid: 3e1caf8f-cc4a-4bc1-b288-95cf48dd4af3
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:components'
+_core:
+  default_config_hash: K7Yv8css2Yl0Wp3l4lV6IPM06Uaq2Aq7vqlyyqIKoG4
+id: canvas_get_component_schema
+tool_id: canvas_get_component_schema
+description: null

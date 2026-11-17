@@ -1,0 +1,12 @@
+name: assistant-claude
+repository: e0ipso/ddev-assistant-claude
+version: v1.5.1
+dependencies:
+    - Lullabot/ddev-gitleaks
+install_date: "2026-11-17T11:06:01+01:00"
+project_files:
+    - web-build/Dockerfile.assistant-claude
+    - config.assistant-claude.yaml
+    - docker-compose.assistant-claude.yaml
+global_files: []
+removal_actions: []

@@ -1,0 +1,19 @@
+uuid: 9f306370-1eb1-4587-99bd-7d4f87878b04
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:publish'
+_core:
+  default_config_hash: TTK9L19ZuWgptJI6VxY-bPGeHoMiBP6bfi7_MxuhDS4
+id: canvas_publish_auto_saves
+tool_id: canvas_publish_auto_saves
+description: null

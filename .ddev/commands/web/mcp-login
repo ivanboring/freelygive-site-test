@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+## Description: Authenticate a coding agent against this site's /mcp endpoint, from inside DDEV.
+## Usage: mcp-login [claude|codex|opencode] [server-name]
+## Example: "ddev mcp-login codex"
+#
+# The agents run inside the web container, and their OAuth callback listener
+# binds the CONTAINER's loopback on an OS-assigned ephemeral port (codex calls
+# bind on 127.0.0.1:0 — the port is different on every run, and neither
+# `codex mcp login` nor `opencode mcp auth` has a flag to pin it). Your browser
+# runs on the host, where 127.0.0.1:<that port> is a different machine's
+# loopback, so the redirect at the end of the flow always fails to connect.
+#
+# Publishing the port is not an option: Docker cannot add a published port to a
+# running container, and the number is not known until the flow has already
+# started. Forwarding it needs a listener on the host, which is the one thing we
+# cannot assume is there.
+#
+# So we skip the network problem entirely. The redirect failing is harmless —
+# the authorization server has already issued the code, and the full callback
+# URL (code and state included) is sitting in the browser's address bar. Paste
+# it back here and we curl it from inside the container, where the listener
+# actually lives. It answers "Authentication complete", exchanges the code, and
+# writes the token to the agent's own config.
+#
+# Claude Code is handled differently. `claude mcp login --no-browser` already
+# implements this exact paste-back itself, so we hand it the terminal instead of
+# driving it. The one prerequisite is upstream of OAuth: a server from the
+# project's .mcp.json stays "awaiting approval" until ~/.claude.json carries BOTH
+# hasTrustDialogAccepted for the workspace and the server in
+# enabledMcpjsonServers. enabledMcpjsonServers in .claude/settings.json does not
+# do it — the trust flag is the half that actually gates it. `ddev mcp-setup`
+# seeds both, so by the time this runs there is normally nothing to approve.
+set -uo pipefail
+
+AGENT="${1:-codex}"
+SERVER="${2:-drupal}"
+
+bold()  { printf '\033[1m%s\033[0m' "$1"; }
+green() { printf '\033[32m%s\033[0m' "$1"; }
+yellow(){ printf '\033[33m%s\033[0m' "$1"; }
+step()  { echo; echo "$(bold "▸ $1")"; }
+warn()  { echo "  $(yellow "!") $1" >&2; }
+ok()    { echo "  $(green "✓") $1"; }
+
+case "$AGENT" in
+  codex)    LOGIN_CMD=(codex mcp login "$SERVER") ;;
+  opencode) LOGIN_CMD=(opencode mcp auth "$SERVER") ;;
+  claude)
+    if ! command -v claude >/dev/null 2>&1; then
+      warn "claude is not installed in this container."
+      exit 1
+    fi
+    step "Starting the Claude Code OAuth flow"
+    echo "  claude prints the URL and asks for the redirect URL back itself —"
+    echo "  the same paste-back this command does for codex and opencode."
+    echo
+    # Straight passthrough: claude owns the terminal for its own prompt.
+    if claude mcp login --no-browser "$SERVER"; then
+      echo
+      ok "$(bold "claude is authenticated against ${SERVER}.")"
+      exit 0
+    fi
+    cat >&2 <<EOT
+
+  $(yellow "!") If that said $(bold "\"${SERVER}\" is from .mcp.json and awaiting approval"), the
+  workspace trust and server approval are missing from ~/.claude.json. Both are
+  seeded by:
+
+      ddev mcp-setup
+
+  Failing that, approve it by hand once — $(bold "ddev claude") → $(bold "/mcp") → approve
+  ${SERVER} → exit — and re-run this command.
+EOT
+    exit 1 ;;
+  *) echo "Unknown agent: ${AGENT} (expected claude, codex or opencode)" >&2; exit 1 ;;
+esac
+
+if ! command -v "${LOGIN_CMD[0]}" >/dev/null 2>&1; then
+  warn "${LOGIN_CMD[0]} is not installed in this container."
+  warn "Add it to the project's agents and re-run the installer, or use another agent."
+  exit 1
+fi
+
+out="$(mktemp)"
+trap 'rm -f "$out"' EXIT
+
+step "Starting the ${AGENT} OAuth flow"
+"${LOGIN_CMD[@]}" >"$out" 2>&1 &
+login_pid=$!
+
+# The CLI prints the authorize URL once its listener is up. Poll rather than
+# sleep a fixed amount: dynamic client registration hits the site first, which
+# takes a moment on a cold cache.
+url=""
+for _ in $(seq 1 60); do
+  url="$(grep -oE 'https?://[^[:space:]]*(authorize|oauth)[^[:space:]]*' "$out" | head -1)"
+  [ -n "$url" ] && break
+  # A flow that exits before printing anything has failed outright.
+  kill -0 "$login_pid" 2>/dev/null || break
+  sleep 1
+done
+
+if [ -z "$url" ]; then
+  warn "${AGENT} did not print an authorization URL."
+  sed 's/^/  /' "$out" >&2
+  wait "$login_pid" 2>/dev/null
+  exit 1
+fi
+
+port="$(printf '%s' "$url" | sed -n 's/.*127\.0\.0\.1%3A\([0-9]*\).*/\1/p')"
+ok "Listener is up inside the container${port:+ on 127.0.0.1:${port}}"
+
+cat <<EOT
+
+$(bold "1.") Open this URL in your browser and approve the connection:
+
+${url}
+
+$(bold "2.") The browser will then fail to open a $(bold "127.0.0.1") address — that is
+   expected, and it is not a problem. The page never loads because that
+   listener lives inside DDEV, not on your machine.
+
+$(bold "3.") Copy that failed URL out of the address bar and paste it below.
+
+EOT
+
+printf '%s ' "$(bold "Callback URL:")"
+IFS= read -r pasted || true
+pasted="${pasted#"${pasted%%[![:space:]]*}"}"   # trim leading space
+pasted="${pasted%"${pasted##*[![:space:]]}"}"   # trim trailing space
+
+if [ -z "$pasted" ]; then
+  warn "Nothing pasted — aborting."
+  kill "$login_pid" 2>/dev/null
+  exit 1
+fi
+
+case "$pasted" in
+  http://localhost:*) pasted="http://127.0.0.1:${pasted#http://localhost:}" ;;
+  http://127.0.0.1:*) ;;
+  *) warn "That does not look like a 127.0.0.1 callback URL — trying it anyway." ;;
+esac
+
+step "Delivering the callback to the listener"
+code="$(curl -s -o /dev/null -w '%{http_code}' "$pasted")"
+if [ "$code" = "200" ]; then
+  ok "Listener accepted the callback (HTTP 200)"
+else
+  warn "Listener answered HTTP ${code} — the code may have expired. Re-run to try again."
+fi
+
+# The CLI exchanges the code and writes its token once the callback lands.
+wait "$login_pid" 2>/dev/null
+rc=$?
+echo
+sed 's/^/  /' "$out" | grep -vF "$url" | grep -v 'by opening this URL' | sed '/^[[:space:]]*$/d'
+
+if [ "$rc" -eq 0 ]; then
+  echo
+  ok "$(bold "${AGENT} is authenticated against ${SERVER}.")"
+  case "$AGENT" in
+    codex)    echo "  The token is in .codex/ — gitignored, and shared with the host through the bind mount." ;;
+    opencode) echo "  The token is in the host-mounted opencode config, so it persists across restarts." ;;
+  esac
+else
+  warn "${AGENT} exited ${rc} — see the output above."
+  exit "$rc"
+fi

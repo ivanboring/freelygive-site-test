@@ -1,0 +1,19 @@
+uuid: 393798f7-c521-4267-9c57-93a9ae724eb6
+langcode: en
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: qbJ-2lX3-XGn42PD3GlyHLVoBRGBPHXESRxrLvtJb-M
+id: drupal_content_read
+name: 'drupal:content:read'
+description: 'Read Drupal content the account may view'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'access content'

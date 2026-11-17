@@ -1,0 +1,19 @@
+uuid: f40e941a-4219-4ca3-9b90-9b16d86435eb
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:edit'
+_core:
+  default_config_hash: CRQmbkxg6c8BRZEMJFPMxRbA9DWicbMy8jyePBU5Hr0
+id: canvas_delete_component
+tool_id: canvas_delete_component
+description: null

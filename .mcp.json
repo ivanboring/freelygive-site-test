@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "storybook": {
+            "type": "http",
+            "url": "https://devpanelmcp.ddev.site:6006/mcp"
+        },
+        "drupal": {
+            "type": "http",
+            "url": "https://devpanelmcp.ddev.site/mcp"
+        }
+    }
+}

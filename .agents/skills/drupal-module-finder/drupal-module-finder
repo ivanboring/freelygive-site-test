@@ -1,0 +1,674 @@
+#!/usr/bin/env bash
+#
+# drupal-module-finder - command-line client for the Module Finder API.
+#
+# Fetches Markdown from the module_api endpoints and caches successful
+# responses locally for 14 days under ~/.cache/drupal-module-finder/.
+
+set -euo pipefail
+
+DEFAULT_HOST="https://module-finder.marcusmailbox.com"
+CACHE_DIR="${DRUPAL_MODULE_FINDER_CACHE:-${HOME}/.cache/drupal-module-finder}"
+CACHE_TTL_DAYS=14
+
+# Absolute path to this script, so install-skill can bundle a copy of itself.
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+# --- Usage statistics ----------------------------------------------------
+#
+# Real commands record lightweight usage stats into the skill's data/
+# directory (next to this command), in stats.json:
+#
+#   requests.search / requests.json / requests.release
+#       number of *HTTP requests actually made* to the API for each kind of
+#       data (search, module JSON and release data); answers served from the
+#       local cache are not requests, so they are not counted;
+#   searches
+#       the text of every semantic-search query that was run;
+#   output_characters.total / .search / .info / .release
+#       running total of characters written to stdout across all runs, plus a
+#       per-kind breakdown: search (semantic-search), info (module-info,
+#       file-structure, documentation-info, readme) and release (release-info).
+#
+# Stats are best-effort: a failure to record never aborts or slows the command
+# being measured.
+
+DATA_DIR="$(dirname "$SELF")/data"
+STATS_FILE="${DATA_DIR}/stats.json"
+
+# Create the stats file with zeroed counters if it does not exist yet.
+ensure_stats() {
+  mkdir -p "$DATA_DIR" 2>/dev/null || return 1
+  [ -f "$STATS_FILE" ] && return 0
+  printf '%s\n' '{"requests":{"search":0,"json":0,"release":0},"searches":[],"output_characters":{"total":0,"search":0,"info":0,"release":0}}' \
+    >"$STATS_FILE" 2>/dev/null || return 1
+}
+
+# Apply a jq program (filter + optional args) to the stats file in place.
+# Best-effort: any failure leaves the file untouched and never fails the caller.
+stats_apply() {
+  ensure_stats || return 0
+  local tmp
+  tmp="$(mktemp 2>/dev/null)" || return 0
+  if jq "$@" "$STATS_FILE" >"$tmp" 2>/dev/null; then
+    mv "$tmp" "$STATS_FILE" 2>/dev/null || rm -f "$tmp"
+  else
+    rm -f "$tmp"
+  fi
+  return 0
+}
+
+# Count one HTTP request of the given category: search | json | release.
+record_request() {
+  stats_apply --arg c "$1" '.requests[$c] = (.requests[$c] // 0) + 1'
+}
+
+# Append a search query to the recorded list of all searches.
+record_search() {
+  stats_apply --arg q "$1" '.searches += [$q]'
+}
+
+# Add n output characters to the running total and, when a category is given
+# (search|info|release), to that category's subtotal as well.
+record_output() {
+  local n="$1" c="${2:-}"
+  if [ -n "$c" ]; then
+    stats_apply --argjson n "$n" --arg c "$c" \
+      '.output_characters.total = (.output_characters.total // 0) + $n
+       | .output_characters[$c]  = (.output_characters[$c]  // 0) + $n'
+  else
+    stats_apply --argjson n "$n" \
+      '.output_characters.total = (.output_characters.total // 0) + $n'
+  fi
+}
+
+# EXIT handler installed for real commands: flush the captured stdout to the
+# real terminal and record how many characters it contained (attributed to
+# __out_category, one of search|info|release, or the total only when empty).
+__stats_out=""
+__out_category=""
+flush_output() {
+  local rc=$?
+  exec 1>&3 2>/dev/null || true
+  exec 3>&- 2>/dev/null || true
+  if [ -n "${__stats_out:-}" ] && [ -f "$__stats_out" ]; then
+    cat "$__stats_out" 2>/dev/null || true
+    local n
+    n="$(wc -m <"$__stats_out" 2>/dev/null | tr -d '[:space:]')" || n=""
+    [ -n "$n" ] && record_output "$n" "$__out_category"
+    rm -f "$__stats_out" 2>/dev/null || true
+  fi
+  return $rc
+}
+
+# Canonical list of subcommands (single source of truth for shell completion).
+SUBCOMMANDS=(module-info semantic-search release-info file-structure documentation-info readme install-skill completion)
+
+usage() {
+  cat <<'EOF'
+drupal-module-finder - query the Module Finder API (output is raw Markdown)
+
+Usage:
+  drupal-module-finder module-info <data_name> [--all] [--fields=f1,f2,...]
+  drupal-module-finder semantic-search "<search words>" [--chunk=true]
+  drupal-module-finder release-info <data_name>
+  drupal-module-finder file-structure <data_name>
+  drupal-module-finder documentation-info <data_name>
+  drupal-module-finder readme <data_name>
+  drupal-module-finder install-skill [--agent=claude]
+  drupal-module-finder completion [bash]
+  drupal-module-finder --help | -h
+
+Commands:
+  module-info <data_name>      Module summary as Markdown.
+      --all                    Verbose mode: every field, with releases expanded.
+      --fields=stars,...       Only the listed fields (drop the "field_" prefix,
+                               e.g. stars, module_categories). "title" is allowed.
+  semantic-search "<words>"    Up to 10 modules ranked by semantic relevance
+                               (scores below 0.3 are dropped). Never cached.
+      --chunk=true             Also show each result's highest-rated matching
+                               chunk (hidden by default; --chunk also works).
+  release-info <data_name>     Releases and their composer commands.
+  file-structure <data_name>   The module's file structure.
+  documentation-info <data_name>
+                               The module's external documentation link, or
+                               "No documentation found" when none is set.
+  readme <data_name>           The module's README text, or "No readme found"
+                               when empty.
+  install-skill                Install the agent skill (SKILL.md + a bundled copy
+                               of this command) into the current directory.
+      --agent=claude           Install to .claude/skills/drupal-module-finder.
+                               Any other/no agent uses .agents/skills/drupal-module-finder.
+  completion [bash]            Print the bash completion script. Enable with:
+                               source <(drupal-module-finder completion bash)
+                               (registers for the name "drupal-module-finder" on
+                               your PATH; the "./" form does not auto-complete).
+
+Options (any command):
+  --host=<url>                 API base URL (default: https://module-finder.marcusmailbox.com/).
+
+Caching:
+  module-info, file-structure, documentation-info and readme read the module's
+  JSON document from /sites/default/files/modules/<data_name>.json, cached for
+  14 days at ~/.cache/drupal-module-finder/<data_name>.json. release-info is
+  cached similarly. semantic-search is never cached (results track the index).
+EOF
+}
+
+die() {
+  printf 'Error: %s\n\n' "$1" >&2
+  usage >&2
+  exit 1
+}
+
+# Is the cache file present and younger than the TTL?
+is_fresh() {
+  local f="$1"
+  [ -f "$f" ] && [ -n "$(find "$f" -mtime "-${CACHE_TTL_DAYS}" 2>/dev/null)" ]
+}
+
+# serve <path> <cache_key> <host> [urlencode_data]
+# Prints the (possibly cached) response body. Errors go to stderr, no caching.
+# When urlencode_data (e.g. "semantic_search=foo bar") is given it is sent with
+# curl -G --data-urlencode so spaces and specials are encoded safely.
+serve() {
+  local path="$1" key="$2" host="$3" enc="${4:-}" category="${5:-}"
+  # An empty key disables local caching (e.g. for live search results).
+  local cache_file=""
+  [ -n "$key" ] && cache_file="${CACHE_DIR}/${key}"
+
+  if [ -n "$cache_file" ] && is_fresh "$cache_file"; then
+    cat "$cache_file"
+    return 0
+  fi
+
+  # Cache miss: we are about to hit the network, so count the request.
+  [ -n "$category" ] && record_request "$category"
+
+  local resp code body
+  if [ -n "$enc" ]; then
+    resp=$(curl -sk -G -w $'\n%{http_code}' --data-urlencode "$enc" "${host}${path}") || {
+      printf 'Error: request to %s%s failed\n' "$host" "$path" >&2
+      return 1
+    }
+  elif ! resp=$(curl -sk -w $'\n%{http_code}' "${host}${path}"); then
+    printf 'Error: request to %s%s failed\n' "$host" "$path" >&2
+    return 1
+  fi
+  code="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+
+  if [ "$code" -ge 400 ]; then
+    printf '%s\n' "$body" >&2
+    return 1
+  fi
+
+  if [ -n "$cache_file" ]; then
+    mkdir -p "$CACHE_DIR"
+    printf '%s\n' "$body" >"$cache_file"
+  fi
+  printf '%s\n' "$body"
+}
+
+# --- JSON-backed module data ---------------------------------------------
+#
+# All commands except semantic-search and release-info read the module's full
+# JSON document from {host}/sites/default/files/modules/{data_name}.json and
+# extract fields from it. Release data is not in that document, so release-info
+# (and the "Name of releases" line) still come from the API.
+
+# Field machine name => human label (used by --all and --fields).
+declare -A LABELS=(
+  [title]="Module Name"
+  [field_data_name]="Data Name"
+  [field_development_status]="Development Status"
+  [field_documentation]="Documentation"
+  [field_drupal_version_coverage]="Drupal Version Coverage"
+  [field_external_information]="External Information"
+  [field_file_structure]="File Structure"
+  [field_full_vector_search]="Full Vector Search"
+  [field_has_agentic_skills]="Has Agentic Skills"
+  [field_latest_module_releases]="Latest Module Releases"
+  [field_latest_release_date]="Latest Release Date"
+  [field_latest_update]="Latest Update"
+  [field_link_to_module]="Link to Module"
+  [field_module_affordances]="Module Affordances"
+  [field_module_categories]="Module Categories"
+  [field_module_description]="Module Description"
+  [field_module_development_status]="Module Development Status"
+  [field_module_maintainers]="Module Maintainers"
+  [field_module_readme_text]="Module Readme Text"
+  [field_module_summary]="Module Summary"
+  [field_project_usage]="Project Usage"
+  [field_security_covered]="Security Covered"
+  [field_stars]="Stars"
+  [field_supporting_organizations]="Supporting Organizations"
+)
+
+# Default module-info output: ordered "Label::field" pairs.
+DEFAULT_FIELDS=(
+  "Module Name::title"
+  "Module Description::field_module_description"
+  "Security Coverage::field_security_covered"
+  "Project Usage::field_project_usage"
+  "Data Name::field_data_name"
+  "Link to Module::field_link_to_module"
+  "Module Development Status::field_module_development_status"
+  "Development Status::field_development_status"
+  "Module Categories::field_module_categories"
+  "Last Update Date::field_latest_update"
+  "Drupal version coverage::field_drupal_version_coverage"
+  "external information::field_external_information"
+  "stars::field_stars"
+  "Latest Release Date::field_latest_release_date"
+  "Has Agentic Skills::field_has_agentic_skills"
+  "Name of releases::field_latest_module_releases"
+)
+
+DATE_FIELDS="field_latest_update field_latest_release_date"
+LIST_FIELDS="field_security_covered field_drupal_version_coverage field_module_categories field_has_agentic_skills field_module_development_status field_development_status"
+BLOCK_FIELDS="field_module_description field_module_readme_text field_documentation field_file_structure field_full_vector_search"
+
+in_set() { case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+
+# Title-case a machine value: drupal_10 -> "Drupal 10".
+humanize() {
+  printf '%s' "$1" | sed 's/_/ /g' | awk '{for (i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1'
+}
+
+# Download (and 14-day cache) a module's JSON document; prints it to stdout.
+fetch_json() {
+  local data_name="$1" host="$2"
+  local cache_file="${CACHE_DIR}/${data_name}.json"
+  if is_fresh "$cache_file"; then
+    cat "$cache_file"
+    return 0
+  fi
+  # Cache miss: we are about to fetch the module JSON, so count the request.
+  record_request json
+  local resp code body
+  if ! resp=$(curl -sk -w $'\n%{http_code}' "${host}/sites/default/files/modules/${data_name}.json"); then
+    printf 'Error: request to %s failed\n' "$host" >&2
+    return 1
+  fi
+  code="${resp##*$'\n'}"
+  body="${resp%$'\n'*}"
+  if [ "$code" -ge 400 ]; then
+    printf '# Error\n\nNo module found with data name `%s`.\n' "$data_name" >&2
+    return 1
+  fi
+  mkdir -p "$CACHE_DIR"
+  printf '%s' "$body" >"$cache_file"
+  printf '%s' "$body"
+}
+
+# Extract a field: scalar on one line, array items one per line, nothing if null.
+jget() {
+  jq -r --arg k "$1" '.[$k] | if . == null then empty elif type == "array" then .[] else . end' <<<"$2"
+}
+
+# Format a field value as Markdown (lists humanized, dates as Y-m-d).
+format_value() {
+  local key="$1" json="$2"
+
+  if in_set "$key" "$DATE_FIELDS"; then
+    local ts
+    ts=$(jq -r --arg k "$key" '.[$k] // empty' <<<"$json")
+    [ -z "$ts" ] && { printf '—'; return; }
+    date -d "@$ts" +'%Y-%m-%d' 2>/dev/null || printf '%s' "$ts"
+    return
+  fi
+
+  if in_set "$key" "$LIST_FIELDS"; then
+    local -a vals out=()
+    mapfile -t vals < <(jget "$key" "$json")
+    [ "${#vals[@]}" -eq 0 ] && { printf '—'; return; }
+    local v
+    for v in "${vals[@]}"; do out+=("$(humanize "$v")"); done
+    local joined
+    printf -v joined '%s, ' "${out[@]}"
+    printf '%s' "${joined%, }"
+    return
+  fi
+
+  # Scalar (newlines preserved) or, for unexpected arrays, joined with ", ".
+  local val
+  val=$(jq -r --arg k "$key" '.[$k] | if . == null then empty elif type == "array" then join(", ") else . end' <<<"$json")
+  [ -z "$val" ] && { printf '—'; return; }
+  printf '%s' "$val"
+}
+
+# Release titles ("- <title>" per line) from the API; empty if none.
+release_titles() {
+  local md
+  md=$(serve "/api/module/${1}/releases" "${1}--releases" "$2" "" "release" 2>/dev/null) || return 0
+  printf '%s\n' "$md" | sed -n 's/^- \*\*\(.*\)\*\*$/- \1/p'
+}
+
+# Render one "Label / value" entry as Markdown (no trailing newline).
+render_entry() {
+  local label="$1" key="$2" json="$3" data_name="$4" host="$5"
+  if [ "$key" = "field_latest_module_releases" ]; then
+    local titles
+    titles=$(release_titles "$data_name" "$host")
+    if [ -n "$titles" ]; then
+      printf '**%s:**\n\n%s' "$label" "$titles"
+    else
+      printf '**%s:** —' "$label"
+    fi
+    return
+  fi
+  local value
+  value=$(format_value "$key" "$json")
+  if in_set "$key" "$BLOCK_FIELDS" && [ "$value" != "—" ]; then
+    printf '**%s:**\n\n%s' "$label" "$value"
+  else
+    printf '**%s:** %s' "$label" "$value"
+  fi
+}
+
+# --- Shell completion ----------------------------------------------------
+#
+# The `completion` subcommand both prints the bash completion script and serves
+# the dynamic lists that script queries at TAB time, so there is a single source
+# of truth for subcommands, field names and cached data names.
+
+# Space-separated list of subcommands.
+completion_commands() {
+  printf '%s\n' "${SUBCOMMANDS[*]}"
+}
+
+# Field names accepted by `module-info --fields=` (LABELS keys without the
+# field_ prefix, plus the special "title").
+completion_fields() {
+  local k out=()
+  for k in "${!LABELS[@]}"; do
+    if [ "$k" = "title" ]; then out+=("title"); else out+=("${k#field_}"); fi
+  done
+  printf '%s\n' "${out[*]}"
+}
+
+# Data names that currently have a cached JSON document. The release cache key
+# is "<name>--releases" (no .json), so globbing *.json yields data names only.
+completion_data_names() {
+  local f names=()
+  [ -d "$CACHE_DIR" ] || return 0
+  for f in "$CACHE_DIR"/*.json; do
+    [ -e "$f" ] || continue
+    f="$(basename "$f")"
+    names+=("${f%.json}")
+  done
+  [ "${#names[@]}" -eq 0 ] || printf '%s\n' "${names[*]}"
+}
+
+# The bash completion script (emitted verbatim; it calls back into the command
+# for the dynamic lists above).
+completion_script() {
+  cat <<'COMPLETION_EOF'
+# bash completion for drupal-module-finder
+# Enable with:  source <(drupal-module-finder completion bash)
+_drupal_module_finder() {
+  local cur cmd subcommand
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  cmd="${COMP_WORDS[0]}"
+  subcommand="${COMP_WORDS[1]}"
+
+  # Completing the subcommand itself.
+  if [ "$COMP_CWORD" -le 1 ]; then
+    COMPREPLY=( $(compgen -W "$("$cmd" completion commands 2>/dev/null)" -- "$cur") )
+    return 0
+  fi
+
+  # Value completion for "=" options.
+  case "$cur" in
+    --fields=*)
+      local val base last fields
+      val="${cur#--fields=}"
+      fields="$("$cmd" completion fields 2>/dev/null)"
+      if [[ "$val" == *,* ]]; then
+        base="${val%,*},"
+        last="${val##*,}"
+      else
+        base=""
+        last="$val"
+      fi
+      COMPREPLY=( $(compgen -P "--fields=${base}" -W "$fields" -- "$last") )
+      compopt -o nospace 2>/dev/null
+      return 0
+      ;;
+    --agent=*)
+      COMPREPLY=( $(compgen -P "--agent=" -W "claude" -- "${cur#--agent=}") )
+      return 0
+      ;;
+    --host=*)
+      return 0
+      ;;
+  esac
+
+  # Per-subcommand option set.
+  local opts
+  case "$subcommand" in
+    module-info)     opts="--all --fields= --host= --help" ;;
+    semantic-search) opts="--chunk= --host= --help" ;;
+    install-skill)   opts="--agent= --host= --help" ;;
+    release-info|file-structure|documentation-info|readme)
+                     opts="--host= --help" ;;
+    *)               opts="--host= --help" ;;
+  esac
+
+  # Positional <data_name> completion for the data-name commands (unless the
+  # user is clearly typing an option). semantic-search takes free text, so it is
+  # intentionally excluded.
+  case " module-info release-info file-structure documentation-info readme " in
+    *" $subcommand "*)
+      if [[ "$cur" != -* ]]; then
+        COMPREPLY=( $(compgen -W "$("$cmd" completion data-names 2>/dev/null)" -- "$cur") )
+        return 0
+      fi
+      ;;
+  esac
+
+  COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+  # Keep the cursor next to a sole option that still needs a value.
+  if [ "${#COMPREPLY[@]}" -eq 1 ] && [[ "${COMPREPLY[0]}" == *= ]]; then
+    compopt -o nospace 2>/dev/null
+  fi
+  return 0
+}
+complete -F _drupal_module_finder drupal-module-finder
+COMPLETION_EOF
+}
+
+main() {
+  [ $# -eq 0 ] && { usage; exit 0; }
+
+  local command="" data_name="" host="$DEFAULT_HOST"
+  local all=0 fields="" chunk=0 agent=""
+
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+  esac
+
+  command="$1"
+  shift
+
+  # completion takes its own (non-flag) sub-arguments, so handle it before the
+  # generic flag parser below.
+  if [ "$command" = "completion" ]; then
+    case "${1:-bash}" in
+      bash | "") completion_script ;;
+      commands) completion_commands ;;
+      fields) completion_fields ;;
+      data-names) completion_data_names ;;
+      *) die "completion: unknown argument: $1" ;;
+    esac
+    exit 0
+  fi
+
+  # From here on a real command runs, so account for its output. Redirect stdout
+  # to a temp file; the EXIT trap flushes it back to the terminal and records the
+  # character count. (completion, --help and no-args returned above and are
+  # intentionally not measured.)
+  case "$command" in
+    semantic-search) __out_category="search" ;;
+    release-info)    __out_category="release" ;;
+    module-info | file-structure | documentation-info | readme) __out_category="info" ;;
+    *)               __out_category="" ;;
+  esac
+  ensure_stats
+  __stats_out="$(mktemp 2>/dev/null || printf '')"
+  if [ -n "$__stats_out" ]; then
+    exec 3>&1
+    exec 1>"$__stats_out"
+    trap flush_output EXIT
+  fi
+
+  # Parse remaining args: one positional data_name plus flags.
+  for arg in "$@"; do
+    case "$arg" in
+      --all) all=1 ;;
+      --chunk) chunk=1 ;;
+      --chunk=*) [ "${arg#--chunk=}" = "true" ] && chunk=1 ;;
+      --fields=*) fields="${arg#--fields=}" ;;
+      --host=*) host="${arg#--host=}" ;;
+      --agent=*) agent="${arg#--agent=}" ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      -*) die "unknown option: $arg" ;;
+      *)
+        [ -z "$data_name" ] || die "unexpected argument: $arg"
+        data_name="$arg"
+        ;;
+    esac
+  done
+
+  host="${host%/}"
+
+  case "$command" in
+    module-info)
+      [ -n "$data_name" ] || die "module-info requires a <data_name>"
+      local json
+      json=$(fetch_json "$data_name" "$host") || exit 1
+
+      local -a entries=()
+      local pair label key
+      if [ "$all" -eq 1 ]; then
+        # Every field present in the document (title first).
+        local -a keys
+        mapfile -t keys < <(jq -r 'keys_unsorted[]' <<<"$json")
+        entries+=("$(render_entry "Module Name" "title" "$json" "$data_name" "$host")")
+        for key in "${keys[@]}"; do
+          [[ "$key" == field_* ]] || continue
+          label="${LABELS[$key]:-$(humanize "${key#field_}")}"
+          entries+=("$(render_entry "$label" "$key" "$json" "$data_name" "$host")")
+        done
+      elif [ -n "$fields" ]; then
+        local -a filters=() invalid=() valid=()
+        IFS=',' read -ra filters <<<"$fields" || true
+        local f
+        for f in "${filters[@]}"; do
+          f="$(printf '%s' "$f" | tr -d '[:space:]')"
+          [ -z "$f" ] && continue
+          if [ "$f" = "title" ]; then
+            valid+=("title")
+          elif [ -n "${LABELS[field_$f]:-}" ]; then
+            valid+=("field_$f")
+          else
+            invalid+=("$f")
+          fi
+        done
+        if [ "${#invalid[@]}" -gt 0 ]; then
+          local joined
+          printf -v joined '%s`, `' "${invalid[@]}"
+          printf '# Error\n\nUnknown field(s): `%s`.\n' "${joined%\`, \`}" >&2
+          exit 1
+        fi
+        for key in "${valid[@]}"; do
+          entries+=("$(render_entry "${LABELS[$key]}" "$key" "$json" "$data_name" "$host")")
+        done
+      else
+        for pair in "${DEFAULT_FIELDS[@]}"; do
+          label="${pair%%::*}"
+          key="${pair##*::}"
+          entries+=("$(render_entry "$label" "$key" "$json" "$data_name" "$host")")
+        done
+      fi
+
+      # Join entries with blank lines.
+      local first=1 e
+      for e in "${entries[@]+"${entries[@]}"}"; do
+        [ "$first" -eq 1 ] && first=0 || printf '\n\n'
+        printf '%s' "$e"
+      done
+      printf '\n'
+      ;;
+
+    semantic-search)
+      [ -n "$data_name" ] || die "semantic-search requires a quoted <search string>"
+      local search_path="/api/module-search"
+      [ "$chunk" -eq 1 ] && search_path="${search_path}?chunk=true"
+      record_search "$data_name"
+      # Empty cache key: search results are never cached (they track the index),
+      # so serve always hits the network and counts the request.
+      serve "$search_path" "" "$host" "semantic_search=${data_name}" "search"
+      ;;
+
+    release-info)
+      [ -n "$data_name" ] || die "release-info requires a <data_name>"
+      serve "/api/module/${data_name}/releases" "${data_name}--releases" "$host" "" "release"
+      ;;
+
+    file-structure)
+      [ -n "$data_name" ] || die "file-structure requires a <data_name>"
+      local json fs
+      json=$(fetch_json "$data_name" "$host") || exit 1
+      fs=$(jget field_file_structure "$json")
+      if [ -z "$fs" ]; then echo "No file structure found"; else printf '%s\n' "$fs"; fi
+      ;;
+
+    documentation-info)
+      [ -n "$data_name" ] || die "documentation-info requires a <data_name>"
+      local json doc
+      json=$(fetch_json "$data_name" "$host") || exit 1
+      doc=$(jget field_external_information "$json")
+      if [ -z "$doc" ]; then echo "No documentation found"; else printf '%s\n' "$doc"; fi
+      ;;
+
+    readme)
+      [ -n "$data_name" ] || die "readme requires a <data_name>"
+      local json readme
+      json=$(fetch_json "$data_name" "$host") || exit 1
+      readme=$(jget field_module_readme_text "$json")
+      if [ -z "$readme" ]; then echo "No readme found"; else printf '%s\n' "$readme"; fi
+      ;;
+
+    install-skill)
+      local base skill_src
+      # SKILL.md lives next to this command in the skill directory.
+      skill_src="$(dirname "$SELF")/SKILL.md"
+      [ -f "$skill_src" ] || die "install-skill: SKILL.md not found next to the command ($skill_src)"
+      if [ "$agent" = "claude" ]; then
+        base=".claude/skills/drupal-module-finder"
+      else
+        base=".agents/skills/drupal-module-finder"
+      fi
+      mkdir -p "$base"
+      # Bundle a copy of this command plus its SKILL.md so the skill is self-contained.
+      cp "$SELF" "$base/drupal-module-finder"
+      chmod +x "$base/drupal-module-finder"
+      cp "$skill_src" "$base/SKILL.md"
+      printf 'Installed drupal-module-finder skill to %s\n' "$base"
+      ;;
+
+    *)
+      die "unknown command: $command"
+      ;;
+  esac
+}
+
+main "$@"

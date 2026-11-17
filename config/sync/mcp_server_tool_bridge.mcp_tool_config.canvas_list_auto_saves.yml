@@ -1,0 +1,19 @@
+uuid: d0e03c51-dd24-4d91-aea3-a563c16d9899
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:mcp:connect'
+_core:
+  default_config_hash: KGyNLIR7LNQkZW-OUdhY7DI0d0aIgU5OKEe-_KOzZ3k
+id: canvas_list_auto_saves
+tool_id: canvas_list_auto_saves
+description: null

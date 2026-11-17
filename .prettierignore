@@ -1,0 +1,21 @@
+/node_modules/
+/dist/
+/.ddev/
+/src/components/*/dist/
+
+# Canvas-managed directories — (re-)written by `canvas pull` with the CMS's own
+# formatting; running prettier on them fights the CLI output and is reverted on
+# the next sync.
+/pages/
+/content-templates/
+/regions/
+
+# Auto-generated ambient declarations for `@/components/<name>` imports —
+# `canvas-utils-gen-types` owns the format; prettier would fight the generator
+# and get rewritten on the next `gen:types`.
+/src/types/canvas-components.d.ts
+
+# The migration-eval instrument and its custom set — fetched/overlaid by
+# .drupalaibp/setup-evals.sh from the ai_best_practices repo, which owns the
+# formatting; prettier would fight the overlay and be rewritten on refetch.
+/.drupalaibp/evals/

@@ -1,0 +1,19 @@
+uuid: c8a70bfa-84ca-4754-9731-6d945d719c68
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:mcp:connect'
+_core:
+  default_config_hash: fDqnU-2UZGOy7okuapXrZa07PS0w_IT2oZ_LsxwhLHs
+id: canvas_list_targets
+tool_id: canvas_list_targets
+description: null

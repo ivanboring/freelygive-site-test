@@ -1,0 +1,19 @@
+uuid: 991a84f2-1526-495c-a9cd-799d35535143
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:edit'
+_core:
+  default_config_hash: 0fWQXEu3jO3HdtN9GT7L62z_SFUrf1WFWyAUU0FqKy4
+id: canvas_update_page_metadata
+tool_id: canvas_update_page_metadata
+description: null

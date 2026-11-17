@@ -1,0 +1,19 @@
+uuid: cb7c1686-d5ea-47bb-b305-3b3cfa56a5df
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:delete'
+_core:
+  default_config_hash: Dl50rwFQqXOfDZHqA0KHO4LpLTbzGtPvhoZKbAb6EIM
+id: canvas_delete_page
+tool_id: canvas_delete_page
+description: null

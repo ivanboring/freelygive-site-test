@@ -1,0 +1,17 @@
+uuid: 54163bc5-4c5d-4fff-a2e9-4e0cb40fbcd9
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+third_party_settings:
+  mcp_server_oauth:
+    authentication_mode: required
+    scopes:
+      - 'drupal:mcp:connect'
+      - 'drupal:content:read'
+_core:
+  default_config_hash: _nNorGsjANHlwXdBwvgI05FYw-b1SwjhbBnAmLQlMfY
+id: entity_list
+tool_id: 'tool_belt:entity_list'
+description: null

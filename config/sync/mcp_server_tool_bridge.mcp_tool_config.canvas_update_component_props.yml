@@ -1,0 +1,19 @@
+uuid: 04b7ae13-05dd-4150-8a15-3118b0befc20
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:edit'
+_core:
+  default_config_hash: QHkIUYCS9IbGcbLwqC3_HO4-V83lUo9WO_s48C0Qz1Q
+id: canvas_update_component_props
+tool_id: canvas_update_component_props
+description: null

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npm run restart:*)",
+      "Bash(npm run code:check:*)",
+      "Bash(npm run code:fix:*)",
+      "Bash(npm run content list:*)",
+      "Bash(npm run content get:*)",
+      "Bash(npm run content uuid:*)",
+      "Bash(npm run content create:*)",
+      "Bash(npm run content update:*)",
+      "Bash(npx tsc:*)",
+      "mcp__storybook__get-story-urls",
+      "Skill(:*)",
+      "Bash(agent-browser:*)"
+    ],
+    "deny": [
+      "Bash(git * push:*)",
+      "Bash(git push:*)",
+      "Bash(scp:*)",
+      "Bash(sftp:*)",
+      "Bash(ssh-keyscan:*)",
+      "Bash(ssh:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "storybook"
+  ]
+}

@@ -1,0 +1,17 @@
+uuid: 1a0d566b-be10-4f16-999a-49a65a40f41a
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_page_edit
+name: 'drupal:canvas:page:edit'
+description: 'Edit Canvas pages and their component trees'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'edit canvas_page'

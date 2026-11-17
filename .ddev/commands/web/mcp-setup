@@ -1,0 +1,643 @@
+#!/usr/bin/env bash
+## Description: Set up this site's /mcp endpoint (agent_access stack) with every Canvas Tools operation.
+## Usage: mcp-setup [--role=ROLE] [--no-composer] [--no-agent-access] [--no-tool-scopes] [--no-mcp-json] [--help]
+## Example: "ddev mcp-setup"
+#
+# Stands up a Model Context Protocol endpoint on the local Drupal site, so an
+# external agent (Claude Code, Claude.ai, any MCP client that speaks OAuth) can
+# build Canvas pages through the site itself instead of through this repo's
+# Canvas CLI.
+#
+# Two upstream projects define the shape of this:
+#
+#   * agent_access (https://www.drupal.org/project/agent_access) — the Drupal AI
+#     Initiative's recipe for agent connections: Simple OAuth + Tool API + MCP
+#     Server, with requests running as the connected account under that
+#     account's own permissions. This script installs and applies that recipe
+#     verbatim where it can, rather than reimplementing it, and then does the
+#     parts a recipe cannot: generate site secrets, fix the registration
+#     endpoint, and grant the connect permissions to a role.
+#
+#   * canvas_tools (https://www.drupal.org/project/canvas_tools) — Tool API
+#     plugins for Canvas page building. It ships an mcp_tool_config for every
+#     operation, so enabling the module plus mcp_server_tool_bridge is what puts
+#     them on the wire as tool_api__canvas_*.
+#
+# What this adds on top of the two: OAuth scopes for the Canvas permissions.
+# Simple OAuth scopes here are permission-granular, so a token carries exactly
+# the permissions its scopes map to. Without Canvas scopes a connected agent
+# would authenticate happily and then be denied on every write, because its
+# token would hold `access mcp server` and nothing else. The scopes below are
+# attached to the tools that need them, which is also what makes them appear in
+# the server's advertised scopes_supported, and therefore what makes a client
+# ask for them at connection time.
+#
+# Idempotent: re-run it after a module update, or after a fresh `ddev start`.
+# It never overwrites an oauth2_scope or a tool config a site already owns.
+set -uo pipefail
+
+# ── Options ──────────────────────────────────────────────────────────────────
+ROLE=""
+DO_COMPOSER=1
+DO_AGENT_ACCESS=1
+DO_TOOL_SCOPES=1
+DO_MCP_JSON=1
+
+usage() {
+  sed -n '2,4p' "$0" | sed 's/^## //'
+  cat <<'USAGE'
+
+Flags:
+  --role=ROLE        Role to grant the connect permissions to (default: the
+                     site's administrator role, or content_editor if absent).
+  --no-composer      Skip `composer require` — use what is already installed.
+  --no-agent-access  Do not install/apply the agent_access recipe; enable the
+                     same module stack directly instead.
+  --no-tool-scopes   Leave the Canvas tools ungated (no OAuth scopes attached).
+                     Tools then rely on the connected account's permissions only.
+  --no-mcp-json      Do not register the endpoint with this project's agents
+                     (.mcp.json for Claude Code, .codex/config.toml for Codex).
+USAGE
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --role=*)          ROLE="${arg#*=}" ;;
+    --no-composer)     DO_COMPOSER=0 ;;
+    --no-agent-access) DO_AGENT_ACCESS=0 ;;
+    --no-tool-scopes)  DO_TOOL_SCOPES=0 ;;
+    --no-mcp-json)     DO_MCP_JSON=0 ;;
+    -h|--help)         usage; exit 0 ;;
+    *) echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+bold()  { printf '\033[1m%s\033[0m' "$1"; }
+green() { printf '\033[32m%s\033[0m' "$1"; }
+yellow(){ printf '\033[33m%s\033[0m' "$1"; }
+step()  { echo; echo "$(bold "▸ $1")"; }
+warn()  { echo "  $(yellow "!") $1" >&2; }
+ok()    { echo "  $(green "✓") $1"; }
+
+PROJECT_ROOT="/var/www/html"
+cd "$PROJECT_ROOT" || { echo "Cannot reach $PROJECT_ROOT" >&2; exit 1; }
+DOCROOT="${DDEV_DOCROOT:-web}"
+SITE_URL="${DDEV_PRIMARY_URL:-https://${DDEV_HOSTNAME:-localhost}}"
+SITE_URL="${SITE_URL%/}"
+
+# ── Preflight ────────────────────────────────────────────────────────────────
+# This repo ships in two shapes: a local Drupal CMS site (the Canvas source) and
+# a Storybook-only project pointed at a hosted Acquia Source site. Only the
+# first one has a Drupal to put an endpoint on.
+step "Checking this project has a local Drupal site"
+if [ ! -f "${PROJECT_ROOT}/${DOCROOT}/index.php" ] || ! command -v drush >/dev/null 2>&1; then
+  cat >&2 <<EOT
+  $(yellow "!") No local Drupal site found at ${PROJECT_ROOT}/${DOCROOT}.
+
+  This command sets up an MCP endpoint on the Drupal site that backs this
+  project. The Storybook-only variant of this project has no local Drupal — it
+  talks to a hosted Acquia Source site, which you connect with 'ddev canvas-setup'.
+  An MCP endpoint would have to be set up on that hosted site instead, by
+  installing agent_access and canvas_tools there.
+EOT
+  exit 1
+fi
+if ! drush status --field=bootstrap 2>/dev/null | grep -qi 'success'; then
+  warn "Drupal did not bootstrap. Is the site installed? (ddev drush status)"
+  exit 1
+fi
+ok "Drupal site at ${SITE_URL}"
+
+if [ "$(drush ev 'print \Drupal::moduleHandler()->moduleExists("canvas") ? "y" : "n";' 2>/dev/null)" != "y" ]; then
+  warn "The 'canvas' module is not enabled — canvas_tools cannot be installed without it."
+  warn "Install Drupal Canvas first, then re-run this command."
+  exit 1
+fi
+ok "Drupal Canvas is enabled"
+
+# ── 1. Packages ──────────────────────────────────────────────────────────────
+# Package names copied from the agent_access README. The two doubled names are
+# the packages published by those standalone drupal.org projects, and the
+# prerelease flags must stay explicit root requirements because Composer ignores
+# transitive stability flags. canvas_tools has no tagged release yet, so it is
+# pinned to its development branch.
+step "Installing the packages"
+if [ "$DO_COMPOSER" -eq 1 ]; then
+  BASE_PKGS=(
+    'drupal/tool:^1.0@beta'
+    'drupal/tool_belt:^1.0@alpha'
+    'drupal/mcp_server:^2.0.0-beta2@beta'
+    'drupal/mcp_server_tool_bridge-mcp_server_tool_bridge:^1.0@beta'
+    'drupal/mcp_server_oauth-mcp_server_oauth:^1.0@alpha'
+    'drupal/simple_oauth:^6'
+    'drupal/canvas_tools:1.0.x-dev'
+  )
+  PKGS=("${BASE_PKGS[@]}")
+  [ "$DO_AGENT_ACCESS" -eq 1 ] && PKGS+=('drupal/agent_access:^1.0@alpha')
+
+  echo "  composer require -W ${PKGS[*]}"
+  if ! composer require -W --no-interaction "${PKGS[@]}"; then
+    if [ "$DO_AGENT_ACCESS" -eq 1 ]; then
+      warn "Resolution failed with agent_access — retrying without it."
+      warn "The module stack is enabled directly in that case; the endpoint is the same."
+      if composer require -W --no-interaction "${BASE_PKGS[@]}"; then
+        DO_AGENT_ACCESS=0
+      else
+        warn "composer require failed. Fix the resolution error above and re-run."
+        exit 1
+      fi
+    else
+      warn "composer require failed. Fix the resolution error above and re-run."
+      exit 1
+    fi
+  fi
+  ok "Packages installed"
+else
+  ok "Skipped (--no-composer)"
+fi
+
+# ── 2. The agent_access recipe, or the same stack by hand ────────────────────
+# Recipes are apply-time config: the package alone changes nothing. Drush 13
+# applies them; core's own CLI (dr) is the fallback the project's README uses.
+# Either way the modules below are what the recipe installs, so a site that
+# cannot apply it still ends up with a working endpoint — minus the recipe's two
+# starter scopes and two tool_belt tools, which step 4 recreates anyway.
+MODULE_STACK=(
+  simple_oauth
+  simple_oauth_pkce
+  simple_oauth_server_metadata
+  simple_oauth_client_registration
+  tool
+  tool_belt
+  tool_belt_content
+  mcp_server
+  mcp_server_tool_bridge
+  mcp_server_oauth
+)
+
+recipe_dir() {
+  local d
+  for d in "${PROJECT_ROOT}/recipes/agent_access" \
+           "${PROJECT_ROOT}/${DOCROOT}/recipes/agent_access" \
+           "${PROJECT_ROOT}/${DOCROOT}/recipes/contrib/agent_access" \
+           "${PROJECT_ROOT}/vendor/drupal/agent_access"; do
+    [ -f "${d}/recipe.yml" ] && { printf '%s' "$d"; return 0; }
+  done
+  return 1
+}
+
+if [ "$DO_AGENT_ACCESS" -eq 1 ]; then
+  step "Applying the agent_access recipe"
+else
+  step "Enabling the agent_access module stack (--no-agent-access)"
+fi
+applied=0
+if [ "$DO_AGENT_ACCESS" -eq 1 ] && dir="$(recipe_dir)"; then
+  echo "  recipe: ${dir}"
+  # A recipe that is already applied re-applies cleanly (it is strict about
+  # conflicting versions of its own config, not about being run twice).
+  if drush recipe "$dir" -y 2>&1 | sed 's/^/  /'; then
+    applied=1
+  elif [ -x "${PROJECT_ROOT}/vendor/bin/dr" ] && "${PROJECT_ROOT}/vendor/bin/dr" recipe "$dir" 2>&1 | sed 's/^/  /'; then
+    applied=1
+  fi
+  # "not a known module or theme" on a freshly installed extension clears with a
+  # rebuild — see Drupal core issue #3501858.
+  if [ "$applied" -eq 0 ]; then
+    warn "First apply failed; rebuilding caches and retrying once."
+    drush cache:rebuild >/dev/null 2>&1
+    drush recipe "$dir" -y 2>&1 | sed 's/^/  /' && applied=1
+  fi
+fi
+
+if [ "$applied" -eq 1 ]; then
+  ok "Recipe applied"
+else
+  [ "$DO_AGENT_ACCESS" -eq 1 ] && warn "Recipe not applied — enabling the same module stack directly."
+  drush -y pm:enable "${MODULE_STACK[@]}" 2>&1 | sed 's/^/  /'
+fi
+
+step "Enabling canvas_tools"
+drush -y pm:enable canvas_tools mcp_server_tool_bridge 2>&1 | sed 's/^/  /'
+if [ "$(drush ev 'print \Drupal::moduleHandler()->moduleExists("canvas_tools") ? "y" : "n";' 2>/dev/null)" != "y" ]; then
+  warn "canvas_tools is not enabled — the endpoint will come up with no Canvas tools on it."
+else
+  ok "canvas_tools enabled"
+fi
+
+# The module installer only creates storage for base fields another module adds
+# to an existing entity type when it notices them at install time, and it misses
+# them when the two modules come up in one batch. simple_oauth and its
+# submodules add a dozen such fields to `consumer`, and a missing one surfaces
+# much later as "Base table or view not found" when a client registers at
+# /oauth/register. setup-canvas-connection.sh does this before it creates its
+# own consumer; repeat it here, because the stack enabled above adds more
+# consumer fields and because this command also runs standalone.
+step "Reconciling consumer field storage"
+drush php:eval '
+  $eum = \Drupal::entityDefinitionUpdateManager();
+  $installed = \Drupal::service("entity.last_installed_schema.repository")
+    ->getLastInstalledFieldStorageDefinitions("consumer");
+  $current = \Drupal::service("entity_field.manager")
+    ->getFieldStorageDefinitions("consumer");
+  $missing = array_diff_key($current, $installed);
+  foreach ($missing as $name => $def) {
+    $eum->installFieldStorageDefinition($name, "consumer", $def->getProvider(), $def);
+  }
+  print $missing
+    ? "  installed: " . implode(", ", array_keys($missing)) . "\n"
+    : "  already consistent\n";
+' 2>&1 | sed 's/^/  /' || warn "Could not reconcile consumer field storage."
+
+# ── 3. Site secrets the recipe cannot create ─────────────────────────────────
+# setup-canvas-connection.sh already generates a keypair in ./keys for the
+# Canvas CLI's client_credentials consumer; Simple OAuth has one keypair per
+# site, so reuse it rather than rotating it out from under that consumer.
+step "Simple OAuth keys"
+keydir="${PROJECT_ROOT}/keys"   # outside the docroot
+pub="$(drush config:get simple_oauth.settings public_key --format=string 2>/dev/null)"
+priv="$(drush config:get simple_oauth.settings private_key --format=string 2>/dev/null)"
+if [ -n "$pub" ] && [ -n "$priv" ] && [ -f "$pub" ] && [ -f "$priv" ]; then
+  ok "Existing keypair kept ($pub)"
+else
+  if [ ! -f "${keydir}/private.key" ] || [ ! -f "${keydir}/public.key" ]; then
+    mkdir -p "$keydir"
+    drush simple-oauth:generate-keys "$keydir" 2>&1 | sed 's/^/  /'
+  fi
+  chmod 600 "${keydir}/private.key" 2>/dev/null || true
+  drush -y config:set simple_oauth.settings public_key  "${keydir}/public.key"  >/dev/null
+  drush -y config:set simple_oauth.settings private_key "${keydir}/private.key" >/dev/null
+  ok "Keypair generated in ${keydir}"
+fi
+
+# Applying a recipe from the CLI without --url can record
+# http://localhost/oauth/register as the registration endpoint. Clearing the
+# stored value makes OAuth metadata derive it from each request instead, which
+# is what a client discovering this site over https needs.
+step "Clearing the saved client-registration endpoint"
+drush -y config:delete simple_oauth_server_metadata.settings registration_endpoint >/dev/null 2>&1 \
+  && ok "Cleared — it now follows the request host" \
+  || ok "Nothing saved (already derived from the request)"
+drush cache:rebuild >/dev/null 2>&1
+
+# ── 4. Scopes ────────────────────────────────────────────────────────────────
+# Two from agent_access (recreated here so the direct-install path matches), and
+# one per Canvas permission the tools actually exercise. Permission granularity
+# means a token's abilities are exactly the union of its scopes' permissions —
+# these are the permissions, not a new authority: the connected account must
+# still hold them, and entity access is still checked per operation.
+step "Creating OAuth scopes"
+MCP_SCOPES_JSON=$(cat <<'JSON'
+{
+  "drupal_mcp_connect":            {"name": "drupal:mcp:connect",            "permission": "access mcp server",              "description": "Connect to the site MCP endpoint"},
+  "drupal_content_read":           {"name": "drupal:content:read",           "permission": "access content",                 "description": "Read Drupal content the account may view"},
+  "drupal_canvas_page_create":     {"name": "drupal:canvas:page:create",     "permission": "create canvas_page",             "description": "Create Canvas pages"},
+  "drupal_canvas_page_edit":       {"name": "drupal:canvas:page:edit",       "permission": "edit canvas_page",               "description": "Edit Canvas pages and their component trees"},
+  "drupal_canvas_page_delete":     {"name": "drupal:canvas:page:delete",     "permission": "delete canvas_page",             "description": "Delete Canvas pages"},
+  "drupal_canvas_components":      {"name": "drupal:canvas:components",      "permission": "administer components",          "description": "Inspect and administer Canvas components"},
+  "drupal_canvas_page_template":   {"name": "drupal:canvas:page-template",   "permission": "administer page template",       "description": "Create and select Canvas page templates"},
+  "drupal_canvas_content_template":{"name": "drupal:canvas:content-template","permission": "administer content templates",   "description": "Create and edit Canvas content templates"},
+  "drupal_canvas_publish":         {"name": "drupal:canvas:publish",         "permission": "publish auto-saves",             "description": "Publish or discard Canvas drafts"},
+  "drupal_canvas_site_settings":   {"name": "drupal:canvas:site-settings",   "permission": "administer site configuration",  "description": "Set the Canvas homepage and site settings"}
+}
+JSON
+)
+MCP_SCOPES="$MCP_SCOPES_JSON" drush php:eval "$(cat <<'PHP'
+$defs = json_decode(getenv('MCP_SCOPES'), TRUE) ?: [];
+$storage = \Drupal::entityTypeManager()->getStorage('oauth2_scope');
+$known = \Drupal::service('user.permissions')->getPermissions();
+$made = $kept = 0;
+foreach ($defs as $id => $def) {
+  // Never touch a scope the site already owns — a site may have tuned it.
+  if ($storage->load($id)) { $kept++; continue; }
+  if (!isset($known[$def['permission']])) {
+    fwrite(STDERR, "  ! skipped {$def['name']}: permission \"{$def['permission']}\" does not exist on this site\n");
+    continue;
+  }
+  $storage->create([
+    'id' => $id,
+    'name' => $def['name'],
+    'description' => $def['description'],
+    'grant_types' => [
+      'authorization_code' => ['status' => TRUE],
+      'refresh_token' => ['status' => TRUE],
+    ],
+    'umbrella' => FALSE,
+    'parent' => NULL,
+    'granularity_id' => 'permission',
+    'granularity_configuration' => ['permission' => $def['permission']],
+  ])->save();
+  $made++;
+}
+print "  created {$made}, already present {$kept}\n";
+PHP
+)" 2>&1 | sed 's/^/  /'
+
+# ── 5. Canvas tools on the wire ──────────────────────────────────────────────
+# canvas_tools ships an mcp_tool_config per operation in config/optional, which
+# core imports when both modules are enabled. Reconcile anyway: optional config
+# is imported once, so a tool added by a later canvas_tools release — or one a
+# half-finished earlier run left disabled — would otherwise stay off the wire.
+# The bridge exposes `id: canvas_add_component` as `tool_api__canvas_add_component`.
+step "Putting every Canvas Tools operation on the endpoint"
+MCP_TOOL_SCOPES_JSON=$(cat <<'JSON'
+{
+  "canvas_list_targets":             ["drupal:mcp:connect"],
+  "canvas_list_components":          ["drupal:canvas:components"],
+  "canvas_get_component_schema":     ["drupal:canvas:components"],
+  "canvas_get_page_tree":            ["drupal:mcp:connect"],
+  "canvas_list_auto_saves":          ["drupal:mcp:connect"],
+  "canvas_create_page":              ["drupal:canvas:page:create"],
+  "canvas_update_page_metadata":     ["drupal:canvas:page:edit"],
+  "canvas_add_component":            ["drupal:canvas:page:edit"],
+  "canvas_move_component":           ["drupal:canvas:page:edit"],
+  "canvas_delete_component":         ["drupal:canvas:page:edit"],
+  "canvas_update_component_props":   ["drupal:canvas:page:edit"],
+  "canvas_bind_component_props":     ["drupal:canvas:page:edit"],
+  "canvas_delete_page":              ["drupal:canvas:page:delete"],
+  "canvas_create_content_template":  ["drupal:canvas:content-template"],
+  "canvas_update_content_template":  ["drupal:canvas:content-template"],
+  "canvas_create_page_variant":      ["drupal:canvas:page-template"],
+  "canvas_set_default_page_variant": ["drupal:canvas:page-template"],
+  "canvas_set_homepage":             ["drupal:canvas:site-settings"],
+  "canvas_update_site_settings":     ["drupal:canvas:site-settings"],
+  "canvas_publish_auto_saves":       ["drupal:canvas:publish"],
+  "canvas_discard_auto_save":        ["drupal:canvas:publish"]
+}
+JSON
+)
+MCP_TOOL_SCOPES="$MCP_TOOL_SCOPES_JSON" MCP_WITH_SCOPES="$DO_TOOL_SCOPES" drush php:eval "$(cat <<'PHP'
+$scope_map = json_decode(getenv('MCP_TOOL_SCOPES'), TRUE) ?: [];
+$with_scopes = getenv('MCP_WITH_SCOPES') === '1';
+$etm = \Drupal::entityTypeManager();
+if (!$etm->hasDefinition('mcp_tool_config')) {
+  fwrite(STDERR, "  ! mcp_server_tool_bridge is not enabled — no tools can be exposed.\n");
+  return;
+}
+$storage = $etm->getStorage('mcp_tool_config');
+if (!\Drupal::moduleHandler()->moduleExists('canvas_tools')) {
+  fwrite(STDERR, "  ! canvas_tools is not enabled — no Canvas operations to expose.\n");
+  return;
+}
+$path = \Drupal::service('extension.list.module')->getPath('canvas_tools') . '/config/optional';
+$source = new \Drupal\Core\Config\FileStorage($path);
+$created = $enabled = $scoped = 0;
+$names = $source->listAll('mcp_server_tool_bridge.mcp_tool_config.');
+foreach ($names as $name) {
+  $data = $source->read($name);
+  if (empty($data['id'])) { continue; }
+  $id = $data['id'];
+  $entity = $storage->load($id);
+  if (!$entity) {
+    unset($data['uuid'], $data['_core']);
+    $entity = $storage->create($data);
+    $created++;
+  }
+  $changed = $entity->isNew();
+  if (!$entity->status()) { $entity->setStatus(TRUE); $enabled++; $changed = TRUE; }
+  // OAuth policy lives in third-party settings on the tool config; setting it
+  // is also what advertises the scope in the server's scopes_supported, which
+  // is how a connecting client learns to ask for it.
+  if ($with_scopes && isset($scope_map[$id]) && $entity instanceof \Drupal\Core\Config\Entity\ThirdPartySettingsInterface) {
+    if ($entity->getThirdPartySetting('mcp_server_oauth', 'scopes') !== $scope_map[$id]) {
+      $entity->setThirdPartySetting('mcp_server_oauth', 'scopes', array_values($scope_map[$id]));
+      $scoped++;
+      $changed = TRUE;
+    }
+  }
+  if ($changed) { $entity->save(); }
+}
+$total = count($storage->loadByProperties(['status' => TRUE]));
+print "  canvas_tools ships " . count($names) . " operations: created {$created}, enabled {$enabled}, scoped {$scoped}\n";
+print "  {$total} MCP tool(s) enabled on this site in total\n";
+PHP
+)" 2>&1 | sed 's/^/  /'
+
+# ── 6. Who may connect ───────────────────────────────────────────────────────
+# The recipe deliberately creates no roles and grants nothing: which accounts may
+# connect is a site decision. Locally that decision is "the admin", so grant the
+# two connect permissions to one named role rather than to `authenticated`.
+step "Granting the connect permissions"
+MCP_ROLE="$ROLE" drush php:eval "$(cat <<'PHP'
+$wanted = getenv('MCP_ROLE');
+$storage = \Drupal::entityTypeManager()->getStorage('user_role');
+$rid = NULL;
+if ($wanted !== '' && $storage->load($wanted)) {
+  $rid = $wanted;
+}
+elseif ($wanted !== '') {
+  fwrite(STDERR, "  ! role \"{$wanted}\" does not exist on this site\n");
+}
+if (!$rid) {
+  foreach (['administrator', 'content_editor', 'editor'] as $candidate) {
+    if ($storage->load($candidate)) { $rid = $candidate; break; }
+  }
+}
+if (!$rid) {
+  fwrite(STDERR, "  ! no role found to grant — grant 'access mcp server' and 'grant simple_oauth codes' by hand\n");
+  return;
+}
+$role = $storage->load($rid);
+foreach (['access mcp server', 'grant simple_oauth codes'] as $perm) {
+  $role->grantPermission($perm);
+}
+$role->save();
+$note = $role->isAdmin() ? ' (an admin role — it already holds every permission)' : '';
+print "  granted to role \"{$rid}\"{$note}\n";
+PHP
+)" 2>&1 | sed 's/^/  /'
+
+drush cache:rebuild >/dev/null 2>&1
+
+# ── 7. Verify from outside ───────────────────────────────────────────────────
+# -k because the health check should not depend on the container trusting the
+# mkcert CA for curl.
+step "Verifying the endpoint"
+code="$(curl -sk -o /dev/null -w '%{http_code}' "${SITE_URL}/mcp" 2>/dev/null || echo 000)"
+case "$code" in
+  401|403) ok "${SITE_URL}/mcp responds ${code} to an anonymous request — the route is up and guarded" ;;
+  404)     warn "${SITE_URL}/mcp returns 404 — mcp_server is not serving the route. Check 'ddev drush pm:list | grep mcp'." ;;
+  200)     ok "${SITE_URL}/mcp responds 200" ;;
+  *)       warn "${SITE_URL}/mcp returned HTTP ${code} — check the site logs (ddev drush watchdog:show)." ;;
+esac
+
+meta="$(curl -sk "${SITE_URL}/.well-known/oauth-authorization-server" 2>/dev/null)"
+if printf '%s' "$meta" | grep -q '"registration_endpoint"'; then
+  reg="$(printf '%s' "$meta" | sed -n 's/.*"registration_endpoint":"\([^"]*\)".*/\1/p')"
+  case "$reg" in
+    "${SITE_URL}"*) ok "Dynamic client registration advertised at ${reg}" ;;
+    *)              warn "registration_endpoint is ${reg} — expected it under ${SITE_URL}. Clients may fail to register." ;;
+  esac
+else
+  warn "No registration_endpoint in /.well-known/oauth-authorization-server — a client that relies on dynamic registration cannot connect."
+fi
+
+for prm in "/.well-known/oauth-protected-resource/mcp" "/.well-known/oauth-protected-resource"; do
+  body="$(curl -sk "${SITE_URL}${prm}" 2>/dev/null)"
+  if printf '%s' "$body" | grep -q 'scopes_supported'; then
+    count="$(printf '%s' "$body" | tr ',' '\n' | grep -c 'drupal:')"
+    ok "Protected-resource metadata at ${prm} advertises ${count} drupal:* scope(s)"
+    break
+  fi
+done
+
+# ── 8. Register it with this project's MCP clients ───────────────────────────
+# Both files are project-scoped and committed, which is the only durable place
+# for them: the ddev-assistant-* add-ons mirror the host's agent config into the
+# container on every start and `sudo rm -rf` the target first, so a registration
+# written to the container's ~/.claude or ~/.codex does not survive `ddev start`.
+step "Recording the endpoint in .mcp.json (Claude Code)"
+if [ "$DO_MCP_JSON" -eq 1 ] && [ -f "${PROJECT_ROOT}/.mcp.json" ]; then
+  MCP_URL="${SITE_URL}/mcp" php -r '
+    $file = "/var/www/html/.mcp.json";
+    $json = json_decode(file_get_contents($file), TRUE);
+    if (!is_array($json)) { fwrite(STDERR, "  ! .mcp.json is not valid JSON — left alone\n"); exit(0); }
+    $json["mcpServers"] = $json["mcpServers"] ?? [];
+    $url = getenv("MCP_URL");
+    if (($json["mcpServers"]["drupal"]["url"] ?? NULL) === $url) { print "  already present\n"; exit(0); }
+    $json["mcpServers"]["drupal"] = ["type" => "http", "url" => $url];
+    file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    print "  added \"drupal\" -> {$url}\n";
+  ' 2>&1 | sed 's/^/  /'
+else
+  ok "Skipped"
+fi
+
+# A server in .mcp.json is inert until Claude Code both trusts the workspace and
+# has the server on its approved list, and BOTH live in ~/.claude.json, not in
+# .claude/settings.json — enabledMcpjsonServers there does not clear the gate on
+# its own (the project's own "storybook" server sat at "Pending approval"
+# despite being listed). Seeding the pair is what .ddev/commands/web/claude-isolated
+# already does for the eval harness's config home; this does it for the
+# container home that `ddev claude` uses, for every server .mcp.json declares.
+#
+# This accepts the workspace-trust prompt on the operator's behalf. That is the
+# point — it is their own project, just installed by them — but it is a real
+# prompt being pre-answered, so it is done here in the open rather than hidden.
+step "Pre-approving the .mcp.json servers for Claude Code"
+if [ "$DO_MCP_JSON" -eq 1 ] && [ -f "${PROJECT_ROOT}/.mcp.json" ]; then
+  python3 - <<'PYSEED' 2>&1 | sed 's/^/  /'
+import json, os, pathlib
+
+root = "/var/www/html"
+try:
+    servers = list((json.loads(pathlib.Path(root, ".mcp.json").read_text())
+                    .get("mcpServers") or {}).keys())
+except (OSError, ValueError) as e:
+    print("! could not read .mcp.json (%s) — left alone" % e); raise SystemExit(0)
+
+p = pathlib.Path(os.path.expanduser("~/.claude.json"))
+try:
+    cfg = json.loads(p.read_text()) if p.stat().st_size else {}
+except (OSError, ValueError):
+    cfg = {}
+
+proj = cfg.setdefault("projects", {}).setdefault(root, {})
+proj["hasTrustDialogAccepted"] = True
+enabled = proj.setdefault("enabledMcpjsonServers", [])
+disabled = proj.setdefault("disabledMcpjsonServers", [])
+added = [n for n in servers if n not in enabled and n not in disabled]
+enabled.extend(added)
+
+p.write_text(json.dumps(cfg, indent=2))
+print("workspace trusted; approved: %s%s"
+      % (", ".join(enabled) or "none",
+         " (added %s)" % ", ".join(added) if added else " (no change)"))
+PYSEED
+else
+  ok "Skipped"
+fi
+
+# Codex reads $CODEX_HOME/config.toml. .ddev/config.codex.yaml points CODEX_HOME
+# at ${PROJECT_ROOT}/.codex so this registration is project-scoped like the one
+# above. Written directly rather than with `codex mcp add`, which records the
+# server and then blocks on an interactive OAuth browser flow — fine by hand,
+# fatal in an unattended install hook.
+step "Recording the endpoint in .codex/config.toml (Codex)"
+if [ "$DO_MCP_JSON" -eq 1 ]; then
+  mkdir -p "${PROJECT_ROOT}/.codex"
+  MCP_URL="${SITE_URL}/mcp" php -r '
+    $file = "/var/www/html/.codex/config.toml";
+    $url = getenv("MCP_URL");
+    $cur = is_file($file) ? file_get_contents($file) : "";
+    $block = "[mcp_servers.drupal]\nurl = \"{$url}\"\n";
+    if (strpos($cur, $block) !== FALSE) { print "  already present\n"; exit(0); }
+    // Drop any existing [mcp_servers.drupal] table — from its header up to the
+    // next table header (a "[" at the start of a line) or the end of the file —
+    // so a changed URL replaces it instead of stacking a second one.
+    $new = preg_replace("/^\[mcp_servers\.drupal\][^\[]*/m", "", $cur);
+    $new = rtrim($new);
+    $new = ($new === "" ? "" : $new . "\n\n") . $block;
+    file_put_contents($file, $new);
+    print "  added \"drupal\" -> {$url}\n";
+  ' 2>&1 | sed 's/^/  /'
+  ok "Authenticate it once with: ddev codex login"
+else
+  ok "Skipped"
+fi
+
+# OpenCode reads the project's opencode.json, which already carries the
+# installer's bash denylist — so this merges into it rather than replacing it.
+# OAuth is auto-detected from the endpoint; opencode's callback listener uses a
+# FIXED port (127.0.0.1:19876 by default, settable as oauth.callbackPort), which
+# is what makes `ddev mcp-login opencode` able to hand the callback back in.
+step "Recording the endpoint in opencode.json (OpenCode)"
+if [ "$DO_MCP_JSON" -eq 1 ]; then
+  MCP_URL="${SITE_URL}/mcp" php -r '
+    $file = "/var/www/html/opencode.json";
+    $url = getenv("MCP_URL");
+    $json = is_file($file) ? json_decode(file_get_contents($file), TRUE) : [];
+    if (!is_array($json)) { fwrite(STDERR, "  ! opencode.json is not valid JSON — left alone\n"); exit(0); }
+    $json["\$schema"] = $json["\$schema"] ?? "https://opencode.ai/config.json";
+    if (($json["mcp"]["drupal"]["url"] ?? NULL) === $url) { print "  already present\n"; exit(0); }
+    $json["mcp"]["drupal"] = ["type" => "remote", "url" => $url, "enabled" => TRUE];
+    file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+    print "  added \"drupal\" -> {$url}\n";
+  ' 2>&1 | sed 's/^/  /'
+  ok "Authenticate it once with: ddev mcp-login opencode"
+else
+  ok "Skipped"
+fi
+
+# ── Done ─────────────────────────────────────────────────────────────────────
+cat <<EOT
+
+$(bold "MCP endpoint ready")
+
+  Endpoint   $(green "${SITE_URL}/mcp")
+  Auth       OAuth 2.1 (authorization code + PKCE, dynamic client registration)
+  Identity   requests run as the account that approves the connection —
+             locally that is admin / admin at ${SITE_URL}/user
+
+$(bold "Connect an agent to it")
+
+  Claude Code and Codex in this project are already pointed at it — the endpoint
+  is registered in .mcp.json and .codex/config.toml. Each still has to
+  authenticate once:
+
+  ddev mcp-login codex          → guided flow, completes inside DDEV
+  ddev mcp-login opencode       → same for OpenCode
+  ddev claude   → /mcp          → authenticate → approve the scopes
+
+  The agents run in the container, so their OAuth callback listener is on the
+  container's loopback and your browser cannot reach it. ddev mcp-login works
+  around that — it takes the callback URL your browser fails to open and
+  delivers it from inside. See "ddev mcp-login claude" for the Claude Code
+  equivalent, which is one manual curl.
+
+  From a host agent outside the container:
+
+  claude mcp add --transport http drupal ${SITE_URL}/mcp
+
+  The tools arrive named $(bold "tool_api__canvas_*") — canvas_list_targets,
+  canvas_add_component, canvas_publish_auto_saves and the rest — alongside
+  tool_api__entity_list and tool_api__entity_metadata from tool_belt.
+
+$(bold "Where to change things")
+
+  Tools and their OAuth policy   ${SITE_URL}/admin/config/services/mcp-server/tools
+  Scopes                         ${SITE_URL}/admin/config/people/simple_oauth
+  Connected clients (consumers)  ${SITE_URL}/admin/config/services/consumer
+
+  Re-run $(bold "ddev mcp-setup") after updating any of these modules.
+EOT

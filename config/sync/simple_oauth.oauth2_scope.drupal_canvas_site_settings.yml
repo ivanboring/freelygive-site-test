@@ -1,0 +1,17 @@
+uuid: 924de905-17ad-4238-8974-35b01687db6a
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_site_settings
+name: 'drupal:canvas:site-settings'
+description: 'Set the Canvas homepage and site settings'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'administer site configuration'

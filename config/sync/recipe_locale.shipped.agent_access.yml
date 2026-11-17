@@ -1,0 +1,10 @@
+recipe: 'Agent Access for Drupal'
+config:
+  -
+    name: simple_oauth.oauth2_scope.drupal_content_read
+    data:
+      description: 'Read Drupal content the account may view'
+  -
+    name: simple_oauth.oauth2_scope.drupal_mcp_connect
+    data:
+      description: 'Connect to the site MCP endpoint'

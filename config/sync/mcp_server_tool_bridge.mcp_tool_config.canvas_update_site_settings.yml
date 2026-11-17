@@ -1,0 +1,19 @@
+uuid: 9b7a20f6-7db0-467b-bbef-9f9e47cc8463
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:site-settings'
+_core:
+  default_config_hash: V1xd3L97F0F93X40Ow7Jw7o8qb-jhcTm0SoWG5_POlk
+id: canvas_update_site_settings
+tool_id: canvas_update_site_settings
+description: null

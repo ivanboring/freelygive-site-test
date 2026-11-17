@@ -1,0 +1,339 @@
+#!/usr/bin/env php
+<?php
+## Description: Interactive setup for the Acquia Source connection (.env).
+## Usage: canvas-setup
+## Example: "ddev canvas-setup"
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function bold(string $text): string { return "\033[1m{$text}\033[0m"; }
+function green(string $text): string { return "\033[32m{$text}\033[0m"; }
+function yellow(string $text): string { return "\033[33m{$text}\033[0m"; }
+function red(string $text): string { return "\033[31m{$text}\033[0m"; }
+function dim(string $text): string { return "\033[2m{$text}\033[0m"; }
+
+function writeln(string $text = ''): void { fwrite(STDOUT, $text . "\n"); }
+
+// Read a line from the controlling terminal. DDEV custom commands (and the
+// install hook that wraps this one) do not reliably wire STDIN through as an
+// interactive stream, so fgets(STDIN) can return EOF immediately and prompts
+// appear to skip. /dev/tty is the real terminal (the same handle the installer
+// reads its own prompts from); fall back to STDIN only if it can't be opened.
+function ttyIn() {
+    static $h = null;
+    if ($h === null) {
+        $h = @fopen('/dev/tty', 'r');
+        if ($h === false) { $h = STDIN; }
+    }
+    return $h;
+}
+
+function readTtyLine(): string {
+    $line = fgets(ttyIn());
+    return $line === false ? '' : $line;
+}
+
+function prompt(string $question, string $default = ''): string {
+    $hint = $default !== '' ? ' ' . dim("[{$default}]") : '';
+    fwrite(STDOUT, bold($question) . $hint . ': ');
+    $answer = trim(readTtyLine());
+    return $answer !== '' ? $answer : $default;
+}
+
+function secret(string $question): string {
+    fwrite(STDOUT, bold($question) . ': ');
+    system('stty -echo </dev/tty 2>/dev/null');
+    $answer = trim(readTtyLine());
+    system('stty echo </dev/tty 2>/dev/null');
+    writeln(); // newline after hidden input
+    return $answer;
+}
+
+function confirm(string $question, bool $default = true): bool {
+    $hint = $default ? 'Y/n' : 'y/N';
+    fwrite(STDOUT, bold($question) . " [{$hint}]: ");
+    $answer = strtolower(trim(readTtyLine()));
+    if ($answer === '') return $default;
+    return in_array($answer, ['y', 'yes'], true);
+}
+
+function waitForEnter(string $message = 'Press Enter to continue...'): void {
+    fwrite(STDOUT, dim($message));
+    readTtyLine();
+}
+
+function generateSecret(int $length = 32): string {
+    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    $secret = '';
+    for ($i = 0; $i < $length; $i++) {
+        $secret .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $secret;
+}
+
+function trimUrl(string $url): string {
+    return rtrim(trim($url), '/');
+}
+
+function toOrigin(string $url): string {
+    $url = trim($url);
+    if ($url === '') return '';
+
+    if (!preg_match('#^[a-z][a-z0-9+.-]*://#i', $url)) {
+        $url = 'https://' . $url;
+    }
+
+    $parts = parse_url($url);
+    if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) return '';
+
+    $origin = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
+    if (isset($parts['port'])) {
+        $origin .= ':' . $parts['port'];
+    }
+    return $origin;
+}
+
+function hasUrlPartsBeyondOrigin(string $url): bool {
+    $url = trim($url);
+    if ($url === '') return false;
+
+    if (!preg_match('#^[a-z][a-z0-9+.-]*://#i', $url)) {
+        $url = 'https://' . $url;
+    }
+
+    $parts = parse_url($url);
+    if ($parts === false) return false;
+
+    $path = $parts['path'] ?? '';
+    return ($path !== '' && $path !== '/') || isset($parts['query']) || isset($parts['fragment']);
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+writeln();
+writeln(bold('Acquia Source Setup'));
+writeln(bold('==================='));
+writeln();
+writeln('This connects your components to a hosted ' . bold('Acquia Source') . ' site.');
+writeln();
+
+// ── 1. Set up now, or add the data later? ────────────────────────────────────
+
+if (!confirm('Set up the Acquia Source connection now?', true)) {
+    writeln();
+    writeln(yellow('Skipping — no connection configured.'));
+    writeln('Add your Acquia Source data later by running ' . bold('ddev canvas-setup') . ' again,');
+    writeln('or by editing ' . bold('.env') . ' directly (see ' . bold('.env.example') . ').');
+    writeln();
+    exit(0);
+}
+writeln();
+
+// Acquia Source is the only supported connection for this project.
+$projectType = 'Acquia Source';
+
+// ── 2. Site URLs ─────────────────────────────────────────────────────────────
+
+writeln(dim('Acquia Source uses separate URLs for the CMS/API and the public site.'));
+$cmsUrlAnswer = prompt('CMS / API URL (e.g. https://<uuid>.cms.acquia.site)');
+$cmsUrl = toOrigin($cmsUrlAnswer);
+if ($cmsUrl === '' || !parse_url($cmsUrl, PHP_URL_HOST)) {
+    writeln(red('Invalid CMS / API URL: enter a URL with a valid host.'));
+    exit(1);
+}
+if (hasUrlPartsBeyondOrigin($cmsUrlAnswer)) {
+    writeln(dim("Using the site origin {$cmsUrl} (dropped the path from what you pasted)."));
+}
+
+$publicUrlAnswer = prompt('Public site URL (e.g. https://www.example.com)');
+$publicUrl = toOrigin($publicUrlAnswer);
+if ($publicUrl !== '' && hasUrlPartsBeyondOrigin($publicUrlAnswer)) {
+    writeln(dim("Using the site origin {$publicUrl} (dropped the path from what you pasted)."));
+}
+// Eval grading browses the public site as a visitor; Acquia's site_access shield needs its password.
+$shieldPassword = $publicUrl !== '' ? secret('Shield password for the public site (leave blank if none)') : '';
+$sourceSite = trimUrl(prompt('Website you plan to migrate (used by the eval harness)', 'https://freelygive.io/'));
+
+writeln();
+
+// ── 3. Client credentials ───────────────────────────────────────────────────
+
+$defaultPrefix = 'api';
+
+$clientId = prompt('OAuth client machine name', 'canvas-ai');
+
+$clientSecret = secret('OAuth client secret (leave blank to auto-generate)');
+$secretGenerated = false;
+if ($clientSecret === '') {
+    $clientSecret = generateSecret();
+    $secretGenerated = true;
+}
+
+$jsonapiPrefix = prompt('JSON:API prefix', $defaultPrefix);
+
+writeln();
+
+// ── 4. Summary & Drupal instructions ─────────────────────────────────────────
+
+writeln(bold('Summary'));
+writeln(str_repeat('─', 40));
+writeln('  Project type:      ' . green($projectType));
+writeln('  CMS / API URL:     ' . green($cmsUrl));
+if ($publicUrl !== $cmsUrl) {
+    writeln('  Public URL:        ' . green($publicUrl));
+}
+writeln('  Client ID:         ' . green($clientId));
+writeln('  Client secret:     ' . green($clientSecret) . ($secretGenerated ? dim(' (generated)') : ''));
+writeln('  JSON:API prefix:   ' . green($jsonapiPrefix));
+writeln();
+
+writeln(bold(yellow('Configure the OAuth client in Drupal')));
+writeln(str_repeat('─', 40));
+$clientsPath = '/admin/config/services/api-clients';
+$addLabel = 'Add API client';
+writeln('  1. Go to ' . bold('Configuration > Simple OAuth > Clients'));
+writeln('     ' . dim($cmsUrl . $clientsPath));
+writeln('  2. Click ' . bold("\"{$addLabel}\"") . '.');
+writeln('  3. Choose a ' . bold('Label') . ' (e.g. "Canvas AI").');
+writeln('  4. Set ' . bold('Client ID') . ' to: ' . bold($clientId));
+writeln('  5. Set ' . bold('New secret') . ' to: ' . bold($clientSecret));
+writeln('  6. Under ' . bold('Grant types') . ', enable ' . bold('"Client Credentials"') . '.');
+writeln('  7. Under ' . bold('Scopes') . ', select all available scopes.');
+writeln('  8. Set ' . bold('User') . ' to your admin account.');
+writeln('     ' . red('Without this, authentication will fail with a 401 error.'));
+writeln('  9. Uncheck ' . bold('"Is this API client 3rd party?"') . '.');
+writeln(' 10. Check ' . bold('"Is confidential?"') . '.');
+writeln(' 11. Save.');
+writeln();
+
+waitForEnter('Once the client is configured in Drupal, press Enter to continue...');
+writeln();
+
+// ── 5. Write .env ────────────────────────────────────────────────────────────
+
+$envPath = '/var/www/html/.env';
+$envExamplePath = '/var/www/html/.env.example';
+
+$writeEnv = !file_exists($envPath) || confirm('An .env file already exists. Overwrite it?', false);
+
+if ($writeEnv) {
+    $envContent = file_get_contents($envExamplePath);
+    $envContent = preg_replace('/^CANVAS_SITE_URL=.*/m', "CANVAS_SITE_URL={$cmsUrl}", $envContent);
+    $envContent = preg_replace('/^CANVAS_JSONAPI_PREFIX=.*/m', "CANVAS_JSONAPI_PREFIX={$jsonapiPrefix}", $envContent);
+    $envContent = preg_replace('/^CANVAS_CLIENT_ID=.*/m', "CANVAS_CLIENT_ID={$clientId}", $envContent);
+    $envContent = preg_replace('/^CANVAS_CLIENT_SECRET=.*/m', "CANVAS_CLIENT_SECRET={$clientSecret}", $envContent);
+
+    $envContent = rtrim($envContent) . "\n";
+    if ($publicUrl !== '') {
+        $envContent .= "ABP_SERVED_SITE_URL={$publicUrl}\n";
+    }
+    if ($shieldPassword !== '') {
+        $envContent .= "ABP_SERVED_SHIELD_PASSWORD={$shieldPassword}\n";
+    }
+    if ($sourceSite !== '') {
+        $envContent .= "ABP_SOURCE_SITE={$sourceSite}\n";
+    }
+
+    file_put_contents($envPath, $envContent);
+    writeln(green('.env written successfully.'));
+} else {
+    writeln(yellow('Skipping .env write.'));
+}
+writeln();
+
+// ── 6. Update README.md ─────────────────────────────────────────────────────
+$readmePath = '/var/www/html/README.md';
+if (file_exists($readmePath)) {
+    $readme = file_get_contents($readmePath);
+    $originalReadme = $readme;
+
+    // Replace placeholder public URL if present.
+    $readme = str_replace('https://www.example.com', $publicUrl, $readme);
+
+    if ($readme !== $originalReadme) {
+        file_put_contents($readmePath, $readme);
+        writeln(green('README.md updated with public URL.'));
+    }
+}
+writeln();
+
+// ── 7. Validate connection (optional) ────────────────────────────────────────
+
+if (confirm('Test the connection now?')) {
+    writeln();
+    writeln(dim('Requesting OAuth token...'));
+
+    $tokenUrl = $cmsUrl . '/oauth/token';
+    $ch = curl_init($tokenUrl);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'grant_type' => 'client_credentials',
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+        ]),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        writeln(red("Connection failed: {$curlError}"));
+        writeln(yellow('Check that the URL is correct and the site is reachable.'));
+    } elseif ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if (isset($data['access_token'])) {
+            writeln(green('OAuth token obtained successfully.'));
+            writeln();
+
+            // Test the JSON:API endpoint.
+            writeln(dim('Testing JSON:API endpoint...'));
+            $apiUrl = $cmsUrl . '/' . $jsonapiPrefix;
+            $ch2 = curl_init($apiUrl);
+            curl_setopt_array($ch2, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer ' . $data['access_token'],
+                    'Accept: application/vnd.api+json',
+                ],
+            ]);
+            $apiResponse = curl_exec($ch2);
+            $apiCode = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+            curl_close($ch2);
+
+            if ($apiCode >= 200 && $apiCode < 300) {
+                writeln(green('JSON:API endpoint is reachable.'));
+            } else {
+                writeln(yellow("JSON:API endpoint returned HTTP {$apiCode}."));
+                writeln(yellow('The OAuth connection works but the JSON:API prefix may be wrong.'));
+            }
+        } else {
+            writeln(yellow('Received HTTP 200 but no access token in response.'));
+        }
+    } elseif ($httpCode === 401 || $httpCode === 403) {
+        writeln(red("Authentication failed (HTTP {$httpCode})."));
+        writeln(yellow('Common causes:'));
+        writeln(yellow('  - Client ID or secret is incorrect'));
+        writeln(yellow('  - No user assigned under "Client Credentials settings"'));
+        writeln(yellow('  - Required scopes not enabled'));
+    } elseif (str_contains($response ?? '', '<html') || str_contains($response ?? '', '<!DOCTYPE')) {
+        writeln(red("Received an HTML response (HTTP {$httpCode})."));
+        writeln(yellow('This usually means the URL is wrong or does not have Simple OAuth enabled.'));
+    } else {
+        writeln(red("Unexpected response (HTTP {$httpCode})."));
+        writeln(dim(substr($response ?? '', 0, 200)));
+    }
+}
+
+writeln();
+writeln(green(bold('API setup complete!')));
+writeln();

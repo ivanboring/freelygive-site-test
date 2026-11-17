@@ -1,0 +1,19 @@
+uuid: 5a8ba20f-696b-41de-a9a0-6972b5369bc7
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:publish'
+_core:
+  default_config_hash: RSBH9Ki943RSWbDhRyVqqaot4Xo8g7je0CB_9h_2-yM
+id: canvas_discard_auto_save
+tool_id: canvas_discard_auto_save
+description: null

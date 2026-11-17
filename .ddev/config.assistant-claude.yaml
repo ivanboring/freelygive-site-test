@@ -1,0 +1,33 @@
+#ddev-generated
+hooks:
+  pre-start:
+    # Ensure host-side Claude Code config exists before Docker bind-mounts it.
+    - exec-host: "mkdir -p ~/.claude"
+  post-start:
+    # Mirror the read-only host seed into the writable runtime config directory on
+    # every start. Host config is authoritative, so stale container-only files are
+    # removed before copying.
+    #
+    # The seed directory is the fixed mount point declared in
+    # docker-compose.assistant-claude.yaml; it deliberately does not use ${HOME},
+    # which differs between host and container on macOS. See that file.
+    - exec: |
+        set -eu
+        seed_dir="/mnt/ddev-assistant-claude-seed"
+        target_dir="${HOME}/.claude"
+        if [ -d "${seed_dir}" ]; then
+          sudo rm -rf "${target_dir}"
+          mkdir -p "${target_dir}"
+          cp -R -P "${seed_dir}/." "${target_dir}/"
+          sudo chown -R "$(id -u):$(id -g)" "${target_dir}"
+          chmod 700 "${target_dir}"
+          [ ! -f "${target_dir}/.credentials.json" ] || chmod 600 "${target_dir}/.credentials.json"
+        else
+          echo "assistant-claude: no host config mounted at ${seed_dir}; skipping config seed." >&2
+        fi
+
+webimage_extra_packages:
+  - bubblewrap
+  - socat
+  - seccomp
+  - ripgrep

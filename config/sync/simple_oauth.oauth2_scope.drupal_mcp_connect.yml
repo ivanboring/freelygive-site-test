@@ -1,0 +1,19 @@
+uuid: c347e80e-3131-497f-9742-808390cf235f
+langcode: en
+status: true
+dependencies: {  }
+_core:
+  default_config_hash: dymtcfsAcVHh-4CQzQgqylYtnyAh86gumcVfZmWMfQI
+id: drupal_mcp_connect
+name: 'drupal:mcp:connect'
+description: 'Connect to the site MCP endpoint'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'access mcp server'

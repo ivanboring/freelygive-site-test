@@ -1,0 +1,119 @@
+{
+  "label": "Local Drupal CMS + Canvas Storybook AI + Migration Evals",
+  "weight": 2,
+  "ddev_project_type": "drupal11",
+  "is_drupal": true,
+  "profile": "cms",
+  "launch_path": ":6006",
+  "agents": ["claude", "codex", "opencode"],
+  "composer_stability": "dev",
+  "composer_with_all_dependencies": true,
+  "extra_scripts": [],
+  "skills": [
+    {
+      "repo": "ivanboring/drupal-module-finder",
+      "skills": ["drupal-module-finder"]
+    },
+    "obra/superpowers",
+    {
+      "repo": "https://github.com/vercel-labs/skills",
+      "skills": ["find-skills"]
+    },
+    {
+      "repo": "https://github.com/vercel-labs/agent-browser",
+      "skills": ["agent-browser"]
+    },
+    {
+      "repo": "https://gitlab.com/freelygive/canvas-utils",
+      "skills": ["*"]
+    },
+    {
+      "repo": "./skills",
+      "skills": ["*"]
+    }
+  ],
+  "deny_commands": ["git push", "ssh"],
+  "composer_projects": ["drupal/canvas", "drupal/simple_oauth:^6"],
+  "install_modules": ["canvas", "canvas_oauth"],
+  "agents_md": [
+    "This project pairs a local Drupal CMS site with a Storybook component library for Drupal Canvas. The Drupal site is the Canvas source: `drupal/canvas` + `canvas_oauth` are installed and an OAuth client is wired up during install, with the connection written to `.env` (CANVAS_SITE_URL / CANVAS_CLIENT_ID / CANVAS_CLIENT_SECRET). `npx canvas validate` / `npx canvas pull` / `npx canvas push` work against this local site out of the box.",
+    "Storybook is served by a DDEV daemon at https://<project>.ddev.site:6006 — from inside the web container reach it at http://localhost:6006. Restart the daemon with `npm run restart` if it is not responding.",
+    "The Drupal site is at https://<project>.ddev.site (admin / admin). Run drush/composer/npm through DDEV from the host (`ddev drush`, `ddev composer`, `ddev npm`), or directly when you are inside the web container.",
+    "This install carries a migration-grading harness that runs in an isolated `abp-eval` service. The `.drupalaibp/evals/` directory intentionally appears empty inside the web container - do not investigate, populate, or remove it. Operators grade from the host with `ddev eval grade`."
+  ],
+  "append_welcome_text": [
+    "{BOLD}Drupal CMS{RESET} is running at {GREEN}{SITE_URL}{RESET} — log in at {SITE_URL}/user with {BOLD}admin / admin{RESET}.",
+    "{BOLD}Storybook{RESET} is running at {GREEN}{SITE_URL}:6006{RESET}.",
+    "Drupal Canvas is wired to this local site: {BOLD}npx canvas validate{RESET} / {BOLD}npx canvas pull{RESET} / {BOLD}npx canvas push{RESET} work against it. Credentials are in {BOLD}.env{RESET} (gitignored).",
+    "Agents are wired to the site's {BOLD}MCP endpoint{RESET}: connect one anytime with {BOLD}ddev mcp-login codex{RESET} or {BOLD}ddev mcp-login opencode{RESET}.",
+    "{BOLD}Evals{RESET} are installed: grade a migration attempt with {BOLD}ddev eval grade{RESET} (see .drupalaibp/evals/README.md)."
+  ],
+  "hooks": {
+    "create_drupal_site_done": [
+      {
+        "script": "./reinit-git.sh",
+        "weight": 5,
+        "where": "web"
+      },
+      {
+        "script": "./project-rename.sh",
+        "weight": 8,
+        "where": "web"
+      },
+      {
+        "script": "./ddev-restart.sh",
+        "weight": 10,
+        "where": "host"
+      }
+    ],
+    "provision_from_config_done": [
+      {
+        "script": "./setup-canvas-connection.sh",
+        "weight": 10,
+        "where": "web"
+      },
+      {
+        "script": "./setup-mcp.sh",
+        "weight": 20,
+        "where": "web"
+      }
+    ],
+    "before_announce_complete": [
+      {
+        "script": "./setup-featherless.sh",
+        "weight": 5,
+        "where": "web"
+      },
+      {
+        "script": "./finalize-evals.sh",
+        "weight": 30,
+        "where": "web"
+      },
+      {
+        "script": "./setup-evals.sh",
+        "weight": 20,
+        "where": "host"
+      },
+      {
+        "script": "./mcp-login.sh",
+        "weight": 40,
+        "where": "host"
+      }
+    ]
+  },
+  "questions": [
+    {
+      "env": "FEATHERLESS_API_KEY",
+      "label": "Featherless API key for OpenCode, from https://featherless.ai/account/api-keys (enter to skip)",
+      "type": "text",
+      "default": ""
+    },
+    {
+      "env": "CANVAS_MCP_LOGIN",
+      "label": "Connect which agents to the site's MCP endpoint at the end of setup? (space to tick, enter to confirm)",
+      "type": "multi-select-options",
+      "select_options": ["claude", "codex", "opencode"],
+      "default": ""
+    }
+  ]
+}

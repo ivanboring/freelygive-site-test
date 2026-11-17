@@ -1,0 +1,17 @@
+uuid: 41bf3156-c3ae-4636-bbd6-f96d25fa78f4
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_publish
+name: 'drupal:canvas:publish'
+description: 'Publish or discard Canvas drafts'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'publish auto-saves'

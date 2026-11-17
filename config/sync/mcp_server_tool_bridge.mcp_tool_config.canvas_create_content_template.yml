@@ -1,0 +1,19 @@
+uuid: 6819bf62-c3fa-4c6d-9c62-3d2aac3116db
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:content-template'
+_core:
+  default_config_hash: Swi07j6Sakm_Y0DyUTCEP6Un9K-himePQuyeXKPKcqg
+id: canvas_create_content_template
+tool_id: canvas_create_content_template
+description: null

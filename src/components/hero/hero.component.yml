@@ -1,0 +1,87 @@
+name: Hero
+machineName: hero
+status: true
+required:
+  - layout
+  - headingSize
+  - textColor
+  - backgroundImage
+props:
+  properties:
+    backgroundImage:
+      title: Background Image
+      type: object
+      examples:
+        - src: https://placehold.co/1920x1080@2x.png
+          alt: Example image placeholder
+          width: 1920
+          height: 1080
+      $ref: json-schema-definitions://canvas.module/image
+    layout:
+      title: Layout
+      type: string
+      examples:
+        - Left aligned
+      enum:
+        - Left aligned
+        - Centered
+    preHeading:
+      title: Pre Heading
+      type: string
+      examples:
+        - Mission
+    headingElement:
+      title: Heading Element
+      type: string
+      examples:
+        - h2
+      enum:
+        - h1
+        - h2
+        - h3
+        - h4
+        - h5
+        - h6
+    headingSize:
+      title: Heading Size
+      type: string
+      examples:
+        - Extra Large
+      enum:
+        - Extra Large
+        - Large
+        - Medium
+        - Small
+    heading:
+      title: Heading
+      type: string
+      examples:
+        - This space deserves a hero.
+    text:
+      title: Text
+      type: string
+      examples:
+        - >-
+          This is a space to welcome visitors to the site. Grab their attention
+          with copy that clearly states what the site is about.
+      contentMediaType: text/html
+      x-formatting-context: block
+    textColor:
+      title: Text Color
+      type: string
+      examples:
+        - Dark
+      enum:
+        - Dark
+        - Light
+    darkenImage:
+      title: Darken Image
+      type: boolean
+      description:
+        Applies a brightness overlay to the background image for better text
+        contrast.
+      examples:
+        - false
+slots:
+  buttons:
+    title: Buttons

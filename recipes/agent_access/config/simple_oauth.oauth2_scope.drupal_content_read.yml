@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_content_read
+name: 'drupal:content:read'
+description: 'Read Drupal content the account may view'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'access content'

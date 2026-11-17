@@ -1,0 +1,43 @@
+name: 'Update Agent Access development releases'
+description: 'Prepare an earlier Agent Access 1.0.x-dev installation for the current strict recipe configuration.'
+type: 'Agent access update'
+install:
+  - mcp_server_tool_bridge
+config:
+  actions:
+    # The earlier public export declared a provider dependency that this config
+    # entity does not retain in its active export. Re-saving only the derived
+    # dependency metadata makes strict comparison match without removing any
+    # third-party settings.
+    # Both starter tools require both recipe scopes. mcp_server_oauth enforces
+    # a tool's scopes only when its authentication mode is required.
+    '?mcp_server_tool_bridge.mcp_tool_config.entity_list':
+      set:
+        - dependencies
+        - {}
+      setThirdPartySettings:
+        - module: mcp_server_oauth
+          key: authentication_mode
+          value: required
+        - module: mcp_server_oauth
+          key: scopes
+          value:
+            - 'drupal:mcp:connect'
+            - 'drupal:content:read'
+    '?mcp_server_tool_bridge.mcp_tool_config.entity_metadata':
+      set:
+        - dependencies
+        - {}
+      setThirdPartySettings:
+        - module: mcp_server_oauth
+          key: authentication_mode
+          value: required
+        - module: mcp_server_oauth
+          key: scopes
+          value:
+            - 'drupal:mcp:connect'
+            - 'drupal:content:read'
+    # The earlier public development release exposed this third tool. Preserve
+    # the config object for auditability, but make sure it cannot remain exposed.
+    '?mcp_server_tool_bridge.mcp_tool_config.entity_field_values':
+      disable: []

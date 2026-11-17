@@ -1,0 +1,19 @@
+uuid: dce23a75-af7f-470b-894c-f69e5c7964aa
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:create'
+_core:
+  default_config_hash: rNBAa2_hJ476Ez1nx4UEElO05fdgibNsaXYUil_bTKk
+id: canvas_create_page
+tool_id: canvas_create_page
+description: null

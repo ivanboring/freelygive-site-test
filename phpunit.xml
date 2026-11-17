@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+bootstrap="web/core/tests/bootstrap.php"
+colors="true"
+displayDetailsOnTestsThatTriggerDeprecations="true"
+displayDetailsOnTestsThatTriggerErrors="true"
+displayDetailsOnTestsThatTriggerNotices="true"
+displayDetailsOnTestsThatTriggerWarnings="true"
+displayDetailsOnPhpunitDeprecations="true"
+xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
+
+  <coverage>
+  </coverage>
+  <php>
+    <env name="SIMPLETEST_BASE_URL" value="http://web"/>
+    <env name="SIMPLETEST_DB" value="mysql://db:db@db/db"/>
+  </php>
+  <testsuites>
+    <testsuite name="MyModule">
+      <directory>./web/modules/custom/my_module/tests/src/</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>

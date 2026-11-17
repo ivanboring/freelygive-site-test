@@ -1,0 +1,19 @@
+uuid: 0d3b28b8-ec41-4e0b-bfcd-7bd557a8d9a5
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:mcp:connect'
+_core:
+  default_config_hash: aa_7NH5CaXPqSx0KwZNX5TlafCFgYrLvxLa7CO9Zfik
+id: canvas_get_page_tree
+tool_id: canvas_get_page_tree
+description: null

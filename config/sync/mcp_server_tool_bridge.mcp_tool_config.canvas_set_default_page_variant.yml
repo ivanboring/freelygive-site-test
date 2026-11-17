@@ -1,0 +1,19 @@
+uuid: c704b739-83bf-4318-88fd-a3fb5c6abcb1
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page-template'
+_core:
+  default_config_hash: wTuuWZcmYN635mPcow8AwOkzSXkY5lKmMX5tfNlrhD8
+id: canvas_set_default_page_variant
+tool_id: canvas_set_default_page_variant
+description: null

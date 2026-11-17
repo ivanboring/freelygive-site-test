@@ -1,0 +1,57 @@
+{
+  "label": "Acquia Source with Canvas Storybook AI + Migration Evals",
+  "weight": 3,
+  "ddev_project_type": "php",
+  "is_drupal": false,
+  "launch_path": ":6006",
+  "agents": ["claude", "codex", "opencode"],
+  "questions": [
+    {
+      "env": "FEATHERLESS_API_KEY",
+      "label": "Featherless API key for OpenCode, from https://featherless.ai/account/api-keys (enter to skip)",
+      "type": "text",
+      "default": ""
+    }
+  ],
+  "composer_stability": "stable",
+  "extra_scripts": [],
+  "skills": [
+    "obra/superpowers",
+    {
+      "repo": "https://github.com/vercel-labs/skills",
+      "skills": ["find-skills"]
+    },
+    {
+      "repo": "https://github.com/vercel-labs/agent-browser",
+      "skills": ["agent-browser"]
+    },
+    {
+      "repo": "https://gitlab.com/freelygive/canvas-utils",
+      "skills": ["*"]
+    },
+    { "repo": "./skills", "skills": ["*"] }
+  ],
+  "deny_commands": ["git push", "ssh"],
+  "agents_md": [
+    "This is a Storybook component library for Drupal Canvas (no local Drupal site). Storybook is served by a DDEV daemon at https://<project>.ddev.site:6006 — from inside the web container reach it at http://localhost:6006. If the daemon is not responding, restart it with `npm run restart` (host: `ddev npm run restart`).",
+    "To develop against a hosted Acquia Source site, configure the connection with `ddev canvas-setup` (writes `.env`). `npx canvas validate` / `npx canvas pull` / `npx canvas push` then work against that site.",
+    "This install carries a migration-grading harness that runs in an isolated `abp-eval` service. The `.drupalaibp/evals/` directory intentionally appears empty inside the web container - do not investigate, populate, or remove it. Operators grade from the host with `ddev eval grade`."
+  ],
+  "append_welcome_text": [
+    "{BOLD}Storybook{RESET} is running at {GREEN}{SITE_URL}:6006{RESET}",
+    "Connect to a hosted Acquia Source site with {BOLD}ddev canvas-setup{RESET} (or skip it and add the data later), then use {BOLD}npx canvas validate{RESET} / {BOLD}npx canvas push{RESET}.",
+    "{BOLD}Evals{RESET} are installed and the workspace plane is armed: grade with {BOLD}ddev eval grade{RESET}. Site-plane cases (push, served pages) need the operator handover per {BOLD}.drupalaibp/evals/SOURCE-ARM.md{RESET}."
+  ],
+  "hooks": {
+    "ddev_started": [
+      { "script": "./reinit-git.sh", "weight": 5, "where": "web" },
+      { "script": "./project-rename.sh", "weight": 8, "where": "web" }
+    ],
+    "before_announce_complete": [
+      { "script": "./setup-featherless.sh", "weight": 5, "where": "web" },
+      { "script": "./hosted-canvas-setup.sh", "weight": 20, "where": "host" },
+      { "script": "./setup-evals.sh", "weight": 30, "where": "host" },
+      { "script": "./finalize-evals.sh", "weight": 40, "where": "web" }
+    ]
+  }
+}

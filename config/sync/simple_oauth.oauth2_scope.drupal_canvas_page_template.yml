@@ -1,0 +1,17 @@
+uuid: 8d622414-2d48-4635-908f-1adde4100eca
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_page_template
+name: 'drupal:canvas:page-template'
+description: 'Create and select Canvas page templates'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'administer page template'

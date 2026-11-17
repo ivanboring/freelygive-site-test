@@ -1,0 +1,16 @@
+{
+    "name": "drupal/agent_access",
+    "type": "drupal-recipe",
+    "description": "Drupal-side connectivity and authorization for external AI agents through existing user accounts; this implementation assembles MCP + OAuth.",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "drupal/core": "^11.4",
+        "drupal/simple_oauth": "^6.1.4",
+        "drupal/tool": "^1.0.0-beta12@beta",
+        "drupal/tool_belt": "^1.0.0-alpha6@alpha",
+        "drupal/mcp_server": "^2.0.0-beta7",
+        "drupal/mcp_server_tool_bridge": "^1.0.0-beta4@beta",
+        "drupal/mcp_server_oauth": "^1.0.0-alpha2@alpha",
+        "e0ipso/simple_oauth_21": "^1.13"
+    }
+}

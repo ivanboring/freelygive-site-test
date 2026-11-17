@@ -1,0 +1,19 @@
+uuid: cfee8256-c55a-46ad-8f56-8678df4e8b08
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:edit'
+_core:
+  default_config_hash: oxgbZMrTVIdPhX548cCBlqJZiyIt_OnHDNguvFNUlqA
+id: canvas_move_component
+tool_id: canvas_move_component
+description: null

@@ -1,0 +1,21 @@
+name: 'Agent Access for Drupal'
+description: 'Connect external AI agents to Drupal through existing user accounts. This first implementation assembles standards-based MCP + OAuth; Drupal remains the authority, and sites choose which compatible tools and capabilities to expose. Installs no AI provider and creates no roles, permissions, or accounts.'
+type: 'Agent access'
+# Site-specific authority stays in Drupal. This recipe adds only the scopes and
+# a conservative starter tool catalog; it creates no roles or grants. It imports
+# no module-wide optional config, so site-owned OAuth settings are outside the
+# recipe-owned config checked on reapplication.
+config:
+  # Do not silently accept conflicting versions of recipe-owned scopes or tools.
+  strict: true
+install:
+  - simple_oauth
+  - simple_oauth_pkce
+  - simple_oauth_server_metadata
+  - simple_oauth_client_registration
+  - tool
+  - tool_belt
+  - tool_belt_content
+  - mcp_server
+  - mcp_server_tool_bridge
+  - mcp_server_oauth

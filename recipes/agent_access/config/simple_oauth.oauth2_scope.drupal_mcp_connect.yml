@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_mcp_connect
+name: 'drupal:mcp:connect'
+description: 'Connect to the site MCP endpoint'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'access mcp server'

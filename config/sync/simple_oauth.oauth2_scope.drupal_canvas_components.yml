@@ -1,0 +1,17 @@
+uuid: 0330238c-3c99-4f11-a4b2-8d0d61c2ebf9
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_components
+name: 'drupal:canvas:components'
+description: 'Inspect and administer Canvas components'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'administer components'

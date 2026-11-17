@@ -1,0 +1,17 @@
+uuid: 1b3292a4-5e8e-4e33-b251-e1c597462292
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_page_delete
+name: 'drupal:canvas:page:delete'
+description: 'Delete Canvas pages'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'delete canvas_page'

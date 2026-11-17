@@ -1,0 +1,17 @@
+uuid: 81ab7f8c-7e9d-4ea1-a2cc-2fb4f94b90cf
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_content_template
+name: 'drupal:canvas:content-template'
+description: 'Create and edit Canvas content templates'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'administer content templates'

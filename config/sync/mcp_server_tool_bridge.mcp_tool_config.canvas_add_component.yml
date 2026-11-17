@@ -1,0 +1,19 @@
+uuid: 49b44a86-719d-4130-91df-cce32e2a274e
+langcode: en
+status: true
+dependencies:
+  module:
+    - mcp_server_oauth
+  enforced:
+    module:
+      - canvas_tools
+      - mcp_server_tool_bridge
+third_party_settings:
+  mcp_server_oauth:
+    scopes:
+      - 'drupal:canvas:page:edit'
+_core:
+  default_config_hash: jc8G7ebGuoSc3eqO_X67KaUwwrzrF86p58gH84QS6gY
+id: canvas_add_component
+tool_id: canvas_add_component
+description: null

@@ -1,0 +1,17 @@
+uuid: dd727ded-b29f-42d2-97a3-96dfc39a92b9
+langcode: en
+status: true
+dependencies: {  }
+id: drupal_canvas_page_create
+name: 'drupal:canvas:page:create'
+description: 'Create Canvas pages'
+grant_types:
+  authorization_code:
+    status: true
+  refresh_token:
+    status: true
+umbrella: false
+parent: null
+granularity_id: permission
+granularity_configuration:
+  permission: 'create canvas_page'
