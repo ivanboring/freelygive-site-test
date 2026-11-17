@@ -202,12 +202,19 @@ it is rebuilt.
 | `src/components`, `global.css` | `npx canvas push` to the DevPanel site. A git push does nothing for these: they live in its database |
 | Pages and content | The DevPanel site's Canvas editor or its `/mcp`. Re-syncing the local DB overwrites everything there, so only do it on explicit request, with a backup plan first |
 
-**Redeploy.** Toolkit v0.2.0 documents no "deploy the latest commit" workflow.
-List the live `devpanel_plan_*` tools, read their schemas, and use the one that
-redeploys the application's branch, under the approval protocol. Do not
-repurpose `plan_activate_application` (only for undeployed applications) or
-`plan_upgrade_application` (runtime settings). If no tool fits, the user
-redeploys from the DevPanel UI. Then check the deploy activity log for
+**Redeploy.** Toolkit v0.2.0 documents no "deploy the latest commit" workflow,
+and the live MCP has no tool for it either (checked 2026-11-17, 56 tools). The
+only redeploy is `plan_upgrade_application`, which redeploys a running
+application *with changed runtime settings* and regenerates the code-server
+password. Whether it also pulls the newest commit is unverified. Do not
+repurpose it, or `plan_activate_application` (only for undeployed
+applications), just to ship code. Until a route is verified, use one of these:
+- The user redeploys from the DevPanel UI.
+- In the application's VS Code terminal: `git pull`, then `composer install`,
+  then `drush deploy`. This route is also unverified.
+
+Re-check the live tool list each time in case a redeploy tool has been added.
+Then check the deploy activity log for
 `drush updb` / `config:import`. If they did not run, the user runs
 `drush deploy` in the VS Code terminal. Record what worked under **Verified
 update path**.
