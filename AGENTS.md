@@ -270,6 +270,11 @@ directly when you are inside the web container.
   Source site (safe push, page creation, publish, front page, verification),
   with a troubleshooting reference for 503s, dead sessions, duplicates and the
   staged homepage.
+- `devpanel-deploy`: How to put this project on DevPanel and keep it updated —
+  commit the Drupal codebase, add the DevPanel glue, push to GitHub, create the
+  DevPanel project, import the local database/files, and push later code or
+  component changes. Builds on the DevPanel AI toolkit's
+  `devpanel-project-lifecycle` skill (plans, `APPROVE`/`REJECT`, verification).
 
 # Important notes
 
