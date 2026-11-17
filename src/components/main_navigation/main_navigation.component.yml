@@ -1,0 +1,35 @@
+name: Main navigation
+machineName: main_navigation
+status: true
+required: []
+props:
+  properties:
+    colorScheme:
+      title: Color Scheme
+      type: string
+      description: Colour of the menu links on wide screens.
+      examples:
+        - light
+      enum:
+        - light
+        - dark
+      meta:enum:
+        light: Light (dark links)
+        dark: Dark (light links on a dark header)
+    mobileMenu:
+      title: Mobile Menu
+      type: string
+      description: How the menu opens on small screens.
+      examples:
+        - dropdown
+      enum:
+        - dropdown
+        - fullscreen
+      meta:enum:
+        dropdown: Dropdown
+        fullscreen: Full screen
+slots:
+  links:
+    title: Links
+    description:
+      Optional menu links. When empty, the site's main menu is shown instead.

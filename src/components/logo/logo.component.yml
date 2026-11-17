@@ -1,0 +1,13 @@
+name: Logo
+machineName: logo
+status: true
+required: []
+props:
+  properties:
+    image:
+      title: Image
+      type: object
+      description:
+        Optional logo image. When empty, the built-in logo mark is shown.
+      $ref: json-schema-definitions://canvas.module/image
+slots: []

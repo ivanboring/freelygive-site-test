@@ -1,0 +1,66 @@
+name: Logo Card
+machineName: logo_card
+status: true
+required:
+  - image
+props:
+  properties:
+    image:
+      title: Image
+      type: object
+      examples:
+        - src: >-
+            https://placehold.co/800x600@2x.png?alternateWidths=https%3A%2F%2Fplacehold.co%2F%7Bwidth%7Dx%7Bheight%7D%402x.png
+          alt: Example image placeholder
+          width: 800
+          height: 600
+      $ref: json-schema-definitions://canvas.module/image
+    link:
+      title: Link
+      type: string
+      format: uri-reference
+      examples:
+        - /work
+    openInNewTab:
+      title: Open In New Tab
+      type: boolean
+      examples:
+        - false
+    variant:
+      title: Variant
+      type: string
+      examples:
+        - card
+      enum:
+        - card
+        - plain
+      meta:enum:
+        card: Card
+        plain: Plain (logo only)
+    size:
+      title: Size
+      type: string
+      description: Display size of a plain logo.
+      examples:
+        - medium
+      enum:
+        - icon
+        - x_small
+        - small
+        - medium
+        - large
+      meta:enum:
+        icon: Icon
+        x_small: Extra small
+        small: Small
+        medium: Medium
+        large: Large
+    trimWhitespace:
+      title: Trim Whitespace
+      type: boolean
+      description:
+        Crop away the transparent margin around a plain logo (for logo files
+        supplied on a large padded canvas).
+      examples:
+        - false
+slots: []

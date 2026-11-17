@@ -1,0 +1,51 @@
+name: Text
+machineName: text
+status: true
+required:
+  - textSize
+  - textColor
+  - text
+props:
+  properties:
+    text:
+      title: Text
+      type: string
+      examples:
+        - Enter some text...
+      contentMediaType: text/html
+      x-formatting-context: block
+    textSize:
+      title: Text Size
+      type: string
+      examples:
+        - Normal
+      enum:
+        - Extra Small
+        - Small
+        - Normal
+        - Large
+        - Extra Large
+        - Lead
+    textColor:
+      title: Text Color
+      type: string
+      examples:
+        - Dark
+      enum:
+        - Dark
+        - Light
+    spacing:
+      title: Spacing
+      type: string
+      description:
+        Vertical margin around the text. Choose None when the text sits beside a
+        heading and their tops should line up.
+      examples:
+        - normal
+      enum:
+        - normal
+        - none
+      meta:enum:
+        normal: Normal
+        none: None
+slots: []

@@ -1,0 +1,46 @@
+name: Footer
+machineName: footer
+status: true
+required: []
+props:
+  properties:
+    text:
+      title: Text
+      type: string
+      examples:
+        - Built with Acquia Source
+    colorScheme:
+      title: Color Scheme
+      type: string
+      examples:
+        - light
+      enum:
+        - light
+        - dark
+      meta:enum:
+        light: Light
+        dark: Dark (navy brand footer)
+    logo:
+      title: Logo
+      type: object
+      description: Brand logo shown at the start of the footer.
+      $ref: json-schema-definitions://canvas.module/image
+    contactHeading:
+      title: Contact Heading
+      type: string
+      description: Heading shown above the contact links.
+      examples:
+        - Happy to help
+slots:
+  links:
+    title: Links
+    description: Legal links shown under the footer text.
+  contact:
+    title: Contact
+    description: Contact links, such as phone and email.
+  social:
+    title: Social
+    description: Social media icon links, shown beside the contact links.
+  badges:
+    title: Badges
+    description: Accreditation badges and partner logos.

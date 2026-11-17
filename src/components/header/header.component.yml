@@ -1,0 +1,27 @@
+name: Header
+machineName: header
+status: true
+required: []
+props:
+  properties:
+    displaySearchForm:
+      title: Display Search Form
+      type: boolean
+      examples:
+        - true
+    colorScheme:
+      title: Color Scheme
+      type: string
+      examples:
+        - light
+      enum:
+        - light
+        - dark
+      meta:enum:
+        light: Light
+        dark: Dark (navy brand bar)
+slots:
+  logo:
+    title: Logo
+  menu:
+    title: Menu

@@ -1,0 +1,20 @@
+name: Nav link
+machineName: nav_link
+status: true
+required:
+  - title
+  - link
+props:
+  properties:
+    title:
+      title: Title
+      type: string
+      examples:
+        - About us
+    link:
+      title: Link
+      type: string
+      format: uri-reference
+      examples:
+        - /about
+slots: []

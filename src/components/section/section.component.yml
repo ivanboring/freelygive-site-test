@@ -1,0 +1,82 @@
+name: Section
+machineName: section
+status: true
+required:
+  - width
+props:
+  properties:
+    width:
+      title: Width
+      type: string
+      examples:
+        - Normal
+      enum:
+        - Normal
+        - Wide
+        - Full
+    colorScheme:
+      title: Color Scheme
+      type: string
+      description:
+        Background colour. Any option other than None renders a full-width band.
+      examples:
+        - none
+      enum:
+        - none
+        - navy
+        - navy_dark
+      meta:enum:
+        none: None
+        navy: Navy
+        navy_dark: Navy (dark)
+    bottomEdge:
+      title: Bottom Edge
+      type: string
+      description: Shape cut into the bottom of the band.
+      examples:
+        - none
+      enum:
+        - none
+        - curve
+        - chevron
+      meta:enum:
+        none: Straight
+        curve: Curve
+        chevron: Chevron
+    bottomEdgeColor:
+      title: Bottom Edge Color
+      type: string
+      description:
+        Colour shown below the bottom edge shape, normally the colour of the
+        next section.
+      examples:
+        - navy
+      enum:
+        - navy
+        - navy_dark
+        - white
+      meta:enum:
+        navy: Navy
+        navy_dark: Navy (dark)
+        white: White
+    spacing:
+      title: Spacing
+      type: string
+      description:
+        Vertical padding inside the band. Applies when a colour scheme or bottom
+        edge is set.
+      examples:
+        - medium
+      enum:
+        - none
+        - small
+        - medium
+        - large
+      meta:enum:
+        none: None
+        small: Small
+        medium: Medium
+        large: Large
+slots:
+  content:
+    title: Content

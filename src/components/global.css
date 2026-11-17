@@ -1,0 +1,93 @@
+/*
+ * Brand display font. Jost (SIL Open Font License) is an open-licence
+ * geometric stand-in for the commercial Futura PT used by the source site.
+ * Latin subset of the variable font, weights 300-700.
+ */
+@font-face {
+  font-family: 'Jost';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  /* Jost sets ~6-9% wider than Futura PT; scale it so lines break alike. */
+  size-adjust: 94%;
+  src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oTd4g.woff2)
+    format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@theme {
+  --font-sans:
+    Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial,
+    sans-serif;
+
+  /* Brand font, applied by the brand colour schemes (section, header, footer). */
+  --font-brand:
+    Jost, 'Futura PT', Futura, 'Century Gothic', 'Trebuchet MS', Arial,
+    sans-serif;
+
+  /* Brand palette: navy surfaces, yellow accent, mint body text. */
+  --color-navy-700: #2e485c;
+  --color-navy-900: #1d2d39;
+  --color-accent: #f2cb07;
+  --color-mint: #d1faf7;
+
+  --color-primary-100: var(--color-blue-100);
+  --color-primary-200: var(--color-blue-200);
+  --color-primary-300: var(--color-blue-300);
+  --color-primary-400: var(--color-blue-400);
+  --color-primary-500: var(--color-blue-500);
+  --color-primary-600: var(--color-blue-600);
+  --color-primary-700: var(--color-blue-700);
+  --color-primary-800: var(--color-blue-800);
+  --color-primary-900: var(--color-blue-900);
+
+  /* use for light and dark blue text */
+  --color-primary-dark: var(--color-primary-700);
+  --color-primary-light: var(--color-slate-400);
+
+  --color-gray-50: var(--color-slate-50);
+  --color-gray-100: var(--color-slate-100);
+  --color-gray-200: var(--color-slate-200);
+  --color-gray-300: var(--color-slate-300);
+  --color-gray-400: var(--color-slate-400);
+  --color-gray-500: var(--color-slate-500);
+  --color-gray-600: var(--color-slate-600);
+  --color-gray-700: var(--color-slate-700);
+  --color-gray-800: var(--color-slate-800);
+  --color-gray-900: var(--color-slate-900);
+
+  /* use for light and dark gray text */
+  --color-gray-dark: var(--color-gray-700);
+  --color-gray-light: var(--color-gray-300);
+
+  /* use for light and dark default text */
+  --color-white: #ffffff;
+  --color-black: var(--color-slate-950);
+}
+
+html {
+  @apply text-slate-950;
+}
+
+/*
+ * Hand-drawn curved underline drawn behind inline text (one stroke per line,
+ * via box-decoration-break). Used for brand captions and tile titles.
+ */
+@utility underline-curve {
+  padding-bottom: 0.12em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M1 9.2C25 8.5 38 6.8 50 6.3S90 6 98.6 6.4l-2 .9' fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='square' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 0.5em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* The same underline in a dark stroke, for light backgrounds. */
+@utility underline-curve-dark {
+  @apply underline-curve;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M1 9.2C25 8.5 38 6.8 50 6.3S90 6 98.6 6.4l-2 .9' fill='none' stroke='%23020617' stroke-width='5' stroke-linecap='square' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}

@@ -1,0 +1,46 @@
+name: Blockquote
+machineName: blockquote
+status: true
+required:
+  - textColor
+  - text
+props:
+  properties:
+    text:
+      title: Text
+      type: string
+      examples:
+        - Insert a quote...
+      contentMediaType: text/html
+      x-formatting-context: block
+    textColor:
+      title: Text Color
+      type: string
+      examples:
+        - Dark
+      enum:
+        - Dark
+        - Light
+    name:
+      title: Name
+      type: string
+    title:
+      title: Title
+      type: string
+    variant:
+      title: Variant
+      type: string
+      examples:
+        - bar
+      enum:
+        - bar
+        - centered
+      meta:enum:
+        bar: Accent bar
+        centered: Centered pull quote
+    leadIn:
+      title: Lead In
+      type: string
+      description:
+        Introductory line shown before the quote. Centered pull quote only.
+slots: []

@@ -1,0 +1,51 @@
+name: Video embed
+machineName: video_embed
+status: true
+required:
+  - videoUrl
+  - videoTitle
+props:
+  properties:
+    videoUrl:
+      title: Video Url
+      type: string
+      format: uri
+      description: YouTube or Vimeo link (watch, share or embed URL).
+      examples:
+        - https://www.youtube.com/embed/1r0m5jH51D4?feature=oembed
+    videoTitle:
+      title: Video Title
+      type: string
+      description:
+        Title of the video, announced to screen-reader users for the player.
+      examples:
+        - Using a Chatbot to change the design of text in Drupal
+    caption:
+      title: Caption
+      type: string
+      examples:
+        - Chatbot to change text using AI
+    textColor:
+      title: Text Color
+      type: string
+      examples:
+        - Light
+      enum:
+        - Dark
+        - Light
+    offset:
+      title: Offset
+      type: string
+      description:
+        Push the video down on wide screens to stagger a row of videos.
+      examples:
+        - none
+      enum:
+        - none
+        - small
+        - large
+      meta:enum:
+        none: None
+        small: Lower
+        large: Lowest
+slots: []

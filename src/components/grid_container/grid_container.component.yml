@@ -1,0 +1,65 @@
+name: Grid container
+machineName: grid_container
+status: true
+required:
+  - layout
+props:
+  properties:
+    layout:
+      title: Layout
+      type: string
+      examples:
+        - 33-33-33
+      enum:
+        - 50-50
+        - 33-33-33
+        - 75-25
+        - 25-75
+        - 67-33
+        - 33-67
+        - 50-25-25
+        - 25-25-50
+        - 25-25-25-25
+        - Centered wrap
+        - Spread wrap
+      meta:enum:
+        50-50: 50-50
+        33-33-33: 33-33-33
+        75-25: 75-25
+        25-75: 25-75
+        67-33: 67-33
+        33-67: 33-67
+        50-25-25: 50-25-25
+        25-25-50: 25-25-50
+        25-25-25-25: 25-25-25-25
+        Centered wrap: Centered wrap
+    gap:
+      title: Gap
+      type: string
+      examples:
+        - Medium
+      enum:
+        - Extra Small
+        - Small
+        - Medium
+        - Large
+        - Extra Large
+        - Huge
+      meta:enum:
+        Extra Small: Extra Small
+        Small: Small
+        Medium: Medium
+        Large: Large
+        Extra Large: Extra Large
+        Huge: Huge
+    flushEdges:
+      title: Flush Edges
+      type: boolean
+      description:
+        Remove the side gutters so the grid lines up with the surrounding
+        content.
+      examples:
+        - false
+slots:
+  content:
+    title: Content
