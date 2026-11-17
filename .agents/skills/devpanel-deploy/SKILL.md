@@ -61,11 +61,19 @@ bash .agents/skills/devpanel-deploy/scripts/preflight.sh
 `OK` = ready. `TODO` = a step below that is still open. `WARN` = needs the
 user. `BLOCK` = stop and fix it first. Then:
 
-1. **DevPanel MCP tools** (`mcp__devpanel__devpanel_*`) must be available. If
-   they are not: the server is declared in `.mcp.json`, but
-   `.claude/settings.local.json` may list it under `disabledMcpjsonServers`.
-   Ask the user to run `/mcp`, enable `devpanel` and sign in in the browser. A
-   new session may be needed. Do not edit settings files to enable it.
+1. **DevPanel MCP tools** (`mcp__devpanel__devpanel_*`) must be available.
+   If they are not, check `claude mcp get devpanel`:
+   - `Rejected (see disabledMcpjsonServers …)`: Claude Code hides a rejected
+     `.mcp.json` server from `/mcp`, so it cannot be enabled there. The user
+     either moves `devpanel` from `disabledMcpjsonServers` to
+     `enabledMcpjsonServers` in `.claude/settings.local.json`, or runs
+     `claude mcp reset-project-choices` and approves it at the next start.
+     Then they restart the session. The agent must not make this change:
+     approving an MCP server is the user's call, and auto mode denies it.
+   - Needs authentication: Claude runs in the DDEV container, so signing in
+     from `/mcp` fails at the browser redirect. The user runs
+     `ddev mcp-login claude devpanel` on the host and pastes the redirect URL
+     back when prompted. Then `/mcp`, or a new session, shows it connected.
 2. **Lifecycle §1 preflight**: run `devpanel_whoami` (it must show a
    `githubUsername`), then `devpanel_list_workspaces` and
    `devpanel_list_git_owners`. For PAT problems, follow lifecycle §9: the user

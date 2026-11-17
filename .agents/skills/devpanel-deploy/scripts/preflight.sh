@@ -52,7 +52,7 @@ else
 fi
 if [ -f .claude/settings.local.json ] &&
    node -e 'process.exit((require("./.claude/settings.local.json").disabledMcpjsonServers || []).includes("devpanel") ? 0 : 1)' 2>/dev/null; then
-  warn "devpanel MCP server is disabled in .claude/settings.local.json (user enables it with /mcp)"
+  warn "devpanel MCP server is rejected in .claude/settings.local.json: hidden from /mcp until the user re-approves it (SKILL.md section 0)"
 fi
 
 section "Session settings (AGENTS.md)"
