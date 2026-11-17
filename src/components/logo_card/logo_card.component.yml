@@ -1,13 +1,13 @@
 name: Logo Card
 machineName: logo_card
 status: true
-required:
-  - image
+required: []
 props:
   properties:
     image:
       title: Image
       type: object
+      description: The logo to show. Nothing is displayed until one is chosen.
       examples:
         - src: >-
             https://placehold.co/800x600@2x.png?alternateWidths=https%3A%2F%2Fplacehold.co%2F%7Bwidth%7Dx%7Bheight%7D%402x.png

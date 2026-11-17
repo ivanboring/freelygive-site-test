@@ -42,7 +42,7 @@ const gridVariants = cva('grid w-full', {
         'mx-auto flex max-w-[56rem] flex-wrap items-center justify-center',
       // A query container, so items (e.g. Image Tile) can size to its width.
       'Spread wrap':
-        '@container flex flex-wrap items-start justify-center md:justify-around',
+        '@container flex flex-wrap items-start max-md:justify-center md:justify-around',
     } satisfies Record<GridLayout, string>,
     gap: {
       'Extra Small': 'gap-1',

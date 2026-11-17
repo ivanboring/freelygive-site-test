@@ -2,7 +2,6 @@ name: Image tile
 machineName: image_tile
 status: true
 required:
-  - image
   - title
   - link
 props:
@@ -10,6 +9,7 @@ props:
     image:
       title: Image
       type: object
+      description: Background photo. Without one, only the titled band is shown.
       $ref: json-schema-definitions://canvas.module/image
       examples:
         - src: >-

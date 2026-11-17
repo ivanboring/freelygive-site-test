@@ -14,7 +14,7 @@ const SKIP_TARGET_ID = 'header-skip-target';
 /** Header grid layout classes. */
 const headerVariants = cva(
   cn(
-    'relative grid w-full justify-center gap-4 px-8 py-3 leading-[normal]',
+    'relative grid w-full justify-center gap-4 leading-[normal]',
     'border-b border-solid border-gray-200',
     'bg-[var(--color-bg)]',
   ),
@@ -25,9 +25,10 @@ const headerVariants = cva(
         true: 'grid-cols-2 md:grid-cols-[1fr_auto_1fr]',
       },
       colorScheme: {
-        light: '',
+        light: 'px-8 py-3',
         // Brand bar: content aligned to the same 80rem column as sections.
-        dark: 'grid-cols-[auto_1fr] items-center border-b-0 bg-navy-900 px-6 py-5 font-brand md:px-10 md:py-[2.15rem] lg:px-[max(5rem,calc((100%_-_80rem)/2))]',
+        // Range variants only (no bare px/py), so theme utilities can't override them.
+        dark: 'grid-cols-[auto_1fr] items-center border-b-0 bg-navy-900 font-brand max-md:px-6 max-md:py-5 md:py-[2.15rem] md:max-lg:px-10 lg:px-[max(5rem,calc((100%_-_80rem)/2))]',
       } satisfies Record<HeaderColorScheme, string>,
     },
   },
@@ -127,7 +128,7 @@ const Header = ({
       {skipLink && (
         <a
           href={`#${SKIP_TARGET_ID}`}
-          className="sr-only z-[60] rounded-sm bg-white font-semibold text-black focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:px-4 focus:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="sr-only z-[60] rounded-sm bg-white font-semibold text-black focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:px-4 focus:py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent"
         >
           Skip to Content
         </a>

@@ -17,7 +17,7 @@ const wrapperVariants = cva('flex w-full flex-col items-center', {
 
 /** Caption colour (text and its curved underline). */
 const captionVariants = cva(
-  'mt-3 px-2 text-center text-[1.3rem]/[1.37] font-normal lg:text-2xl/[1.37]',
+  'mt-3 px-2 text-center [font-family:inherit] text-[1.3rem]/[1.37] font-normal lg:text-2xl/[1.37]',
   {
     variants: {
       textColor: {

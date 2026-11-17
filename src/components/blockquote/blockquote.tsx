@@ -40,7 +40,7 @@ type BlockquoteVariant = 'bar' | 'centered';
 
 /** Lead-in line colour for the centred variant. */
 const leadInVariants = cva(
-  'text-center text-[1.57rem]/[1.35] md:max-w-[60%] md:text-left md:text-[1.75rem]/[1.35] lg:text-[1.9rem]/[1.35]',
+  'text-[1.57rem]/[1.35] max-md:text-center md:max-w-[60%] md:text-left md:text-[1.75rem]/[1.35] lg:text-[1.9rem]/[1.35]',
   {
     variants: {
       textColor: {
@@ -58,7 +58,7 @@ const centeredQuoteVariants = cva(
     variants: {
       textColor: {
         Dark: 'text-primary-dark',
-        Light: 'text-accent',
+        Light: 'text-brand-accent',
       } satisfies Record<TextColor, string>,
     },
   },
@@ -113,7 +113,7 @@ const Blockquote = ({
         <figure
           className={
             leadIn
-              ? 'w-full text-center md:ml-[33.6%] md:w-[62.2%]'
+              ? 'text-center max-md:w-full md:ml-[33.6%] md:w-[62.2%]'
               : 'mx-auto w-full max-w-[70rem] text-center md:px-[4%]'
           }
         >

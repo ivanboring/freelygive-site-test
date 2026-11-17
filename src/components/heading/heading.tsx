@@ -40,7 +40,7 @@ const preHeadingVariants = cva('mb-4 text-lg font-bold', {
     textColor: {
       Dark: 'text-primary-dark',
       Light: 'text-primary-light',
-      Accent: 'text-accent',
+      Accent: 'text-brand-accent',
     } satisfies Record<HeadingColor, string>,
     headingSize: {
       Display: 'text-lg',
@@ -59,32 +59,36 @@ const preHeadingVariants = cva('mb-4 text-lg font-bold', {
 });
 
 /** Heading text styling classes. */
-const headingVariants = cva('leading-[normal] text-balance', {
-  variants: {
-    textColor: {
-      Dark: 'text-black',
-      Light: 'text-white',
-      Accent: 'text-accent',
-    } satisfies Record<HeadingColor, string>,
-    headingSize: {
-      Display: 'text-[2.875rem] leading-[1.23] md:text-[3.5rem] lg:text-[4rem]',
-      'Extra Large': 'text-6xl',
-      Lead: 'text-[1.75rem] leading-none md:text-[2.25rem] lg:text-[2.95rem]',
-      Large: 'text-4xl',
-      Medium: 'text-2xl',
-      Small: 'text-lg',
-    } satisfies Record<HeadingSize, string>,
-    textShadow: {
-      Light: 'text-shadow-sm',
-      Medium: 'text-shadow-md',
-      Heavy: 'text-shadow-lg',
-    } satisfies Record<TextShadow, string>,
-    headingWeight: {
-      bold: 'font-bold',
-      regular: 'font-normal',
-    } satisfies Record<HeadingWeight, string>,
+const headingVariants = cva(
+  '[font-family:inherit] leading-[normal] text-balance',
+  {
+    variants: {
+      textColor: {
+        Dark: 'text-black',
+        Light: 'text-white',
+        Accent: 'text-brand-accent',
+      } satisfies Record<HeadingColor, string>,
+      headingSize: {
+        Display:
+          'text-[2.875rem] leading-[1.23] md:text-[3.5rem] lg:text-[4rem]',
+        'Extra Large': 'text-6xl',
+        Lead: 'text-[1.75rem] leading-none md:text-[2.25rem] lg:text-[2.95rem]',
+        Large: 'text-4xl',
+        Medium: 'text-2xl',
+        Small: 'text-lg',
+      } satisfies Record<HeadingSize, string>,
+      textShadow: {
+        Light: 'text-shadow-sm',
+        Medium: 'text-shadow-md',
+        Heavy: 'text-shadow-lg',
+      } satisfies Record<TextShadow, string>,
+      headingWeight: {
+        bold: 'font-bold',
+        regular: 'font-normal',
+      } satisfies Record<HeadingWeight, string>,
+    },
   },
-});
+);
 
 interface HeadingProps {
   /** Additional CSS classes. */

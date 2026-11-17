@@ -48,8 +48,8 @@ const trimmedVariants = cva('aspect-[600/264] max-w-full overflow-hidden', {
 });
 
 interface LogoCardProps {
-  /** Logo image source and metadata. */
-  image: CanvasImage;
+  /** Logo image source and metadata. Nothing renders until one is chosen. */
+  image?: CanvasImage;
   /** Optional destination URL; the whole logo becomes a link. */
   link?: string;
   /** Open the link in a new browser tab. */
@@ -74,6 +74,7 @@ const LogoCard = ({
   size = 'medium',
   trimWhitespace = false,
 }: LogoCardProps) => {
+  if (!image?.src) return null;
   const { src, alt, width, height } = image;
 
   let logo: ReactNode;

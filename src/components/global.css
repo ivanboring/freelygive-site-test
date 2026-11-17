@@ -31,7 +31,8 @@
   /* Brand palette: navy surfaces, yellow accent, mint body text. */
   --color-navy-700: #2e485c;
   --color-navy-900: #1d2d39;
-  --color-accent: #f2cb07;
+  /* Not `accent`: themes (e.g. Mercury) ship their own `.text-accent`. */
+  --color-brand-accent: #f2cb07;
   --color-mint: #d1faf7;
 
   --color-primary-100: var(--color-blue-100);

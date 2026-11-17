@@ -9,24 +9,25 @@ type ImageAlignment = 'left' | 'center';
 type ImageMaxWidth = 'none' | 'small' | 'medium' | 'large';
 
 /** Image placement and size classes. */
-const imageVariants = cva('my-8 max-w-full', {
+const imageVariants = cva('my-8', {
   variants: {
     alignment: {
       left: '',
       center: 'mx-auto block',
     } satisfies Record<ImageAlignment, string>,
     maxWidth: {
-      none: '',
-      small: 'w-full md:max-w-[20rem]',
-      medium: 'w-full md:max-w-[30rem]',
-      large: 'w-full md:max-w-[40rem]',
+      // Range variants, so a theme's own `.max-w-full` can't override the cap.
+      none: 'max-w-full',
+      small: 'w-full max-md:max-w-full md:max-w-[20rem]',
+      medium: 'w-full max-md:max-w-full md:max-w-[30rem]',
+      large: 'w-full max-md:max-w-full md:max-w-[40rem]',
     } satisfies Record<ImageMaxWidth, string>,
   },
 });
 
 interface ImageProps {
-  /** Image source and metadata. */
-  image: CanvasImage;
+  /** Image source and metadata. Nothing renders until one is chosen. */
+  image?: CanvasImage;
   /** Horizontal placement of the image within its container. */
   alignment?: ImageAlignment;
   /** Upper limit on the rendered width (from the medium breakpoint up). */
@@ -42,6 +43,7 @@ const Image = ({
   alignment = 'left',
   maxWidth = 'none',
 }: ImageProps) => {
+  if (!image?.src) return null;
   const { src, alt, width, height } = image;
   return (
     <ResponsiveImage

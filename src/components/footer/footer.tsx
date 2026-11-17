@@ -38,7 +38,7 @@ const contactHeadingVariants = cva(
     variants: {
       colorScheme: {
         light: 'text-primary-dark',
-        dark: 'text-accent',
+        dark: 'text-brand-accent',
       } satisfies Record<FooterColorScheme, string>,
     },
   },

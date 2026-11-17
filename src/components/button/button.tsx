@@ -58,7 +58,7 @@ const buttonVariants = cva(
         'Link Light':
           'p-0 text-white hover:text-primary-200 hover:underline hover:underline-offset-3 focus:text-primary-200 active:text-primary-300',
         'Link Accent':
-          'gap-5 p-0 text-[1.0625rem] font-light text-accent underline decoration-1 underline-offset-4 hover:text-white focus:text-white active:text-mint lg:text-[1.1rem]',
+          'gap-5 p-0 text-[1.0625rem] font-light text-brand-accent underline decoration-1 underline-offset-4 hover:text-white focus:text-white active:text-mint lg:text-[1.1rem]',
         'Link Muted':
           'p-0 text-[1.0625rem] font-light text-white/60 hover:text-white hover:underline hover:underline-offset-3 focus:text-white lg:text-[1.1rem]',
         'Nav Link Dark':
