@@ -53,7 +53,7 @@ Settings:
 
 - **source-cli push authorisation** — consent to `npx canvas push` to the live
   CMS (refines, and never loosens, "Deploying to the live site is gated" below).
-  - value: `UNSET` · default: `never`
+  - value: `always allow` · default: `never`
   - options: `never` · `ask per push` (confirm every push) · `ask each session`
     (confirm once at session start, then authorised for that session) ·
     `always allow` (may push without asking)
